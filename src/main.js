@@ -1,6 +1,7 @@
 const { app, BrowserWindow, dialog, ipcMain } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const { processImages } = require("./process/processImages");
 
 // Create the main window
 function createWindow() {
@@ -24,16 +25,7 @@ function createWindow() {
 async function countImagesInDirectory(directoryPath) {
   try {
     const files = await fs.promises.readdir(directoryPath);
-    const imageExtensions = [
-      ".jpg",
-      ".jpeg",
-      ".png",
-      ".gif",
-      ".bmp",
-      ".webp",
-      ".svg",
-      ".tiff",
-    ];
+    const imageExtensions = [".jpg", ".jpeg", ".png"];
 
     const imageFiles = files.filter((file) => {
       const ext = path.extname(file).toLowerCase();
@@ -71,13 +63,23 @@ app.whenReady().then(() => {
 
   // Handle form submission
   ipcMain.handle("submit-config", async (event, config) => {
-    console.log("Received configuration:");
-    console.log("Directory path:", config.path);
-    console.log("API Key:", config.apiKey);
-    console.log("Title Length:", config.titleLength);
-    console.log("Description Length:", config.descLength);
-    console.log("Keyword Count:", config.keywordCount);
-    console.log("Is Freemium:", config.isFreemium);
+    processImages(
+      config.path,
+      {
+        titleLength: config.titleLength,
+        descriptionLength: config.descLength,
+        keywordCount: config.keywordCount,
+      },
+      config.apiKey
+    )
+      .then((results) => {
+        console.log("Processing results:", results);
+        mainWindow.webContents.send("processing-results", results);
+      })
+      .catch((error) => {
+        console.error("Error processing images:", error);
+        mainWindow.webContents.send("processing-error", error.message);
+      });
 
     // Here you would typically process the config or send it to an API
     // For now, we're just logging it and returning success
