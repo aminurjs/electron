@@ -3,77 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <title>API Configuration</title>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        padding: 20px;
-        max-width: 800px;
-        margin: 0 auto;
-      }
-      .form-group {
-        margin-bottom: 15px;
-      }
-      label {
-        display: block;
-        margin-bottom: 5px;
-        font-weight: bold;
-      }
-      input[type="text"],
-      input[type="number"] {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-      }
-      .row {
-        display: flex;
-        gap: 15px;
-      }
-      .col {
-        flex: 1;
-      }
-      button {
-        padding: 10px 15px;
-        background-color: #4caf50;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 16px;
-      }
-      button:hover {
-        background-color: #45a049;
-      }
-      .path-selection {
-        display: flex;
-        gap: 10px;
-        align-items: center;
-      }
-      .path-display {
-        flex: 1;
-        padding: 8px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        min-height: 18px;
-        background-color: #f9f9f9;
-      }
-      .checkbox-group {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      .checkbox-group input {
-        width: auto;
-      }
-      .result {
-        margin-top: 20px;
-        padding: 15px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        background-color: #f9f9f9;
-        display: none;
-      }
-    </style>
+    <link rel="stylesheet" href="./resource/css/styles.css" />
   </head>
   <body>
     <h2>API Configuration</h2>
@@ -102,8 +32,8 @@
             type="number"
             id="title-length"
             min="1"
-            max="100"
-            value="60"
+            max="200"
+            value="90"
             required
           />
         </div>
@@ -114,8 +44,8 @@
             type="number"
             id="desc-length"
             min="1"
-            max="500"
-            value="160"
+            max="300"
+            value="120"
             required
           />
         </div>
@@ -125,9 +55,9 @@
           <input
             type="number"
             id="keyword-count"
-            min="1"
-            max="20"
-            value="5"
+            min="10"
+            max="50"
+            value="20"
             required
           />
         </div>
@@ -145,56 +75,6 @@
       <h3>Configuration Submitted</h3>
       <pre id="result-content"></pre>
     </div>
-
-    <script>
-      let selectedPath = null;
-
-      // Handle directory selection
-      document
-        .getElementById("select-path-btn")
-        .addEventListener("click", async () => {
-          const result = await window.electronAPI.selectPath();
-          if (result) {
-            selectedPath = result.path;
-            document.getElementById("selected-path").textContent = result.path;
-            document.getElementById(
-              "image-count"
-            ).textContent = `Total images found: ${result.imageCount}`;
-          }
-        });
-
-      // Handle form submission
-      document
-        .getElementById("config-form")
-        .addEventListener("submit", async (e) => {
-          e.preventDefault();
-
-          if (!selectedPath) {
-            alert("Please select a directory first");
-            return;
-          }
-
-          const config = {
-            path: selectedPath,
-            apiKey: document.getElementById("api-key").value,
-            titleLength: parseInt(
-              document.getElementById("title-length").value
-            ),
-            descLength: parseInt(document.getElementById("desc-length").value),
-            keywordCount: parseInt(
-              document.getElementById("keyword-count").value
-            ),
-            isFreemium: document.getElementById("is-freemium").checked,
-          };
-
-          const response = await window.electronAPI.submitConfig(config);
-
-          // Display the result
-          const resultDiv = document.getElementById("result");
-          const resultContent = document.getElementById("result-content");
-          resultContent.textContent = JSON.stringify(config, null, 2);
-          resultDiv.style.display = "block";
-        });
-    </script>
+    <script src="./resource/js/script.js"></script>
   </body>
 </html>
