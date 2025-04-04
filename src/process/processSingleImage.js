@@ -54,7 +54,7 @@ async function processSingleImage(image, options, apiKey) {
     tempFiles.push(tempResizedPath, tempOriginalPath);
 
     // Upload image to Gemini
-    const file = await uploadToGemini(tempResizedPath, mimeType);
+    const file = await uploadToGemini(tempResizedPath, mimeType, apiKey);
 
     // Create parts array for Gemini request
     const parts = [
@@ -228,8 +228,11 @@ async function processSingleImage(image, options, apiKey) {
     }
 
     // Add metadata to the image
-    const metadataResult = await addMetadataToImage(tempOriginalPath, metadata);
-    tempFiles.push(metadataResult.outputPath);
+    const metadataResult = await addMetadataToImage(
+      tempOriginalPath,
+      metadata,
+      image.outputPath
+    );
 
     // Clean up temp files
     cleanupTempFilesAsync(tempFiles);
@@ -238,6 +241,7 @@ async function processSingleImage(image, options, apiKey) {
       filename: image.originalname,
       size: image.size,
       metadata,
+      outputPath: metadataResult.outputPath,
     };
   } catch (error) {
     // Clean up temp files

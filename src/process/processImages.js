@@ -7,6 +7,15 @@ const {
 const { processFallbackIndividual } = require("./processFallbackIndividual");
 
 async function processImages(parentDir, options, apiKey) {
+  // Create output directory
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const outputDir = path.join(parentDir, `processed_images_${timestamp}`);
+
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+    console.log(`Created output directory: ${outputDir}`);
+  }
+
   const images = fs
     .readdirSync(parentDir)
     .filter(
@@ -18,6 +27,7 @@ async function processImages(parentDir, options, apiKey) {
     .map((file) => ({
       filename: file,
       path: path.join(parentDir, file),
+      outputPath: path.join(outputDir, file),
     }));
 
   const { titleLength, descriptionLength, keywordCount } = options;
@@ -25,7 +35,7 @@ async function processImages(parentDir, options, apiKey) {
   try {
     const processResults = await processBatchWithConcurrencyLimit(
       images,
-      { titleLength, descriptionLength, keywordCount },
+      { titleLength, descriptionLength, keywordCount, outputDir },
       apiKey
     );
 
@@ -41,14 +51,14 @@ async function processImages(parentDir, options, apiKey) {
 
       // Filter out the original images that failed
       const failedImageObjects = images.filter((img) =>
-        failedResults.some((failure) => failure.filename === img.originalname)
+        failedResults.some((failure) => failure.filename === img.filename)
       );
 
       if (failedImageObjects.length > 0) {
         // Process failed images individually
         const fallbackResults = await processFallbackIndividual(
           failedImageObjects,
-          { titleLength, descriptionLength, keywordCount },
+          { titleLength, descriptionLength, keywordCount, outputDir },
           apiKey
         );
 
@@ -85,6 +95,15 @@ async function processImages(parentDir, options, apiKey) {
         console.log(`- ${failure.filename}: ${failure.error}`);
       });
     }
+
+    // Return all results
+    return {
+      total: images.length,
+      successful: successfulResults,
+      failed: failedResults,
+      allResults: [...successfulResults, ...failedResults],
+      outputDir: outputDir,
+    };
   } catch (error) {
     console.error(`Error in background processing for batch:`, error);
     throw error;

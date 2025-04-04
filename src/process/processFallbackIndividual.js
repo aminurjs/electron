@@ -1,39 +1,45 @@
-const fs = require("fs");
+const path = require("path");
+const { processBatch } = require("./processBatch");
 const { Semaphore } = require("./semaphore");
-const { processSingleImage } = require("./processSingleImage");
 
-async function processFallbackIndividual(failedImages, options, apiKey) {
+async function processFallbackIndividual(images, options, apiKey) {
+  const results = [];
+  const concurrencyLimit = 3; // Lower concurrency for individual processing
+  const semaphore = new Semaphore(concurrencyLimit);
+
   console.log(
-    `Processing ${failedImages.length} failed images individually as fallback`
+    `Starting individual processing for ${images.length} failed images...`
   );
 
-  // Process images one by one with limited concurrency
-  const semaphore = new Semaphore(3); // Lower concurrency for individual processing
-  const results = [];
-
-  // Process each image individually
-  const processPromises = failedImages.map(async (image) => {
+  const individualPromises = images.map(async (image, index) => {
     const release = await semaphore.acquire();
     try {
-      // Verify file exists before processing
-      if (!image.path || !fs.existsSync(image.path)) {
-        console.error(`File not found: ${image.path}`);
-        return {
-          filename: image.originalname,
-          error: `File not found: ${image.path}`,
-          status: "failed",
-        };
-      }
+      console.log(
+        `Individual processing: ${index + 1}/${images.length} - ${
+          image.filename || path.basename(image.path)
+        }`
+      );
 
-      // Process this single image
-      return await processSingleImage(image, options, apiKey);
+      // Create single-item batch for processing
+      const singleItemBatch = [
+        {
+          path: image.path,
+          originalname: image.filename,
+          outputPath: image.outputPath,
+        },
+      ];
+
+      const batchResult = await processBatch(singleItemBatch, options, apiKey);
+      return batchResult[0]; // Return the first (and only) result
     } catch (error) {
       console.error(
-        `Error processing individual image ${image.originalname}: ${error.message}`
+        `Individual processing failed for ${
+          image.filename || path.basename(image.path)
+        }: ${error.message}`
       );
       return {
-        filename: image.originalname,
-        error: error.message || "Unknown error",
+        filename: image.filename || path.basename(image.path),
+        error: error.message || "Unknown error during individual processing",
         status: "failed",
       };
     } finally {
@@ -41,17 +47,17 @@ async function processFallbackIndividual(failedImages, options, apiKey) {
     }
   });
 
-  // Wait for all promises to settle
-  const allResults = await Promise.allSettled(processPromises);
+  const individualResults = await Promise.allSettled(individualPromises);
 
-  // Process results
-  allResults.forEach((result) => {
+  individualResults.forEach((result) => {
     if (result.status === "fulfilled") {
       results.push(result.value);
     } else {
       results.push({
         filename: "unknown",
-        error: result.reason?.message || "Unknown error",
+        error:
+          result.reason?.message ||
+          "Unknown error during individual processing",
         status: "failed",
       });
     }
@@ -59,4 +65,5 @@ async function processFallbackIndividual(failedImages, options, apiKey) {
 
   return results;
 }
+
 module.exports = { processFallbackIndividual };

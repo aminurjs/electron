@@ -17,7 +17,7 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, "index.html"));
 
-  mainWindow.webContents.openDevTools();
+  // mainWindow.webContents.openDevTools();
   return mainWindow;
 }
 
@@ -63,27 +63,31 @@ app.whenReady().then(() => {
 
   // Handle form submission
   ipcMain.handle("submit-config", async (event, config) => {
-    processImages(
-      config.path,
-      {
-        titleLength: config.titleLength,
-        descriptionLength: config.descLength,
-        keywordCount: config.keywordCount,
-      },
-      config.apiKey
-    )
-      .then((results) => {
-        console.log("Processing results:", results);
-        mainWindow.webContents.send("processing-results", results);
-      })
-      .catch((error) => {
-        console.error("Error processing images:", error);
-        mainWindow.webContents.send("processing-error", error.message);
+    try {
+      const results = await processImages(
+        config.path,
+        {
+          titleLength: config.titleLength,
+          descriptionLength: config.descLength,
+          keywordCount: config.keywordCount,
+        },
+        config.apiKey
+      );
+
+      console.log("Processing complete:", {
+        total: results.total,
+        successful: results.successful.length,
+        failed: results.failed.length,
+        outputDir: results.outputDir,
       });
 
-    // Here you would typically process the config or send it to an API
-    // For now, we're just logging it and returning success
-    return { success: true, message: "Configuration received successfully" };
+      mainWindow.webContents.send("processing-results", results);
+      return { success: true, message: "Processing completed successfully" };
+    } catch (error) {
+      console.error("Error processing images:", error);
+      mainWindow.webContents.send("processing-error", error.message);
+      return { success: false, message: error.message };
+    }
   });
 });
 

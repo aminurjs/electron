@@ -1,4 +1,4 @@
-const { path } = require("path");
+const path = require("path");
 
 function getMimeType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
