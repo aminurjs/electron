@@ -2,79 +2,169 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>API Configuration</title>
+    <title>Image Metadata Generator</title>
     <link rel="stylesheet" href="./resource/css/styles.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
   </head>
   <body>
-    <h2>API Configuration</h2>
+    <div class="app-container">
+      <div class="app-header">
+        <h1>Image Metadata Generator</h1>
+        <p class="subtitle">Powered by Gemini AI</p>
+        <button id="settings-btn" class="btn-icon" title="Settings">
+          <i class="fas fa-cog"></i>
+        </button>
+      </div>
 
-    <form id="config-form">
-      <div class="form-group">
-        <label>Directory Path:</label>
-        <div class="path-selection">
-          <div id="selected-path" class="path-display">
-            No directory selected
+      <div class="main-content">
+        <div class="config-panel">
+          <form id="config-form">
+            <div class="form-group">
+              <label>Select Images Directory</label>
+              <div class="path-selection">
+                <div id="selected-path" class="path-display">
+                  No directory selected
+                </div>
+                <button type="button" id="select-path-btn" class="btn primary">
+                  Browse
+                </button>
+              </div>
+              <div id="image-count" class="badge"></div>
+            </div>
+
+            <button type="submit" id="submit-btn" class="btn primary">
+              Generate
+            </button>
+          </form>
+        </div>
+
+        <div class="results-panel" id="results-panel">
+          <h2>Processing Results</h2>
+
+          <div id="progress-container" class="progress-container hidden">
+            <div class="progress-header">
+              <span id="progress-status">Processing images...</span>
+              <span id="progress-count">0/0</span>
+            </div>
+            <div class="progress-bar-container">
+              <div id="progress-bar" class="progress-bar"></div>
+            </div>
           </div>
-          <button type="button" id="select-path-btn">Browse</button>
-        </div>
-        <div id="image-count" style="margin-top: 5px; font-size: 14px"></div>
-      </div>
 
-      <div class="form-group">
-        <label for="api-key">API Key:</label>
-        <input type="text" id="api-key" required />
-      </div>
+          <div id="results-summary" class="results-summary hidden">
+            <div class="summary-item">
+              <span class="summary-label">Total</span>
+              <span id="total-count" class="summary-value">0</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Successful</span>
+              <span id="success-count" class="summary-value">0</span>
+            </div>
+            <div class="summary-item">
+              <span class="summary-label">Failed</span>
+              <span id="failed-count" class="summary-value">0</span>
+            </div>
+            <div class="summary-item full-width">
+              <span class="summary-label">Output Directory</span>
+              <span id="output-dir" class="summary-value output-path">-</span>
+            </div>
+          </div>
 
-      <div class="row">
-        <div class="col form-group">
-          <label for="title-length">Title Length:</label>
-          <input
-            type="number"
-            id="title-length"
-            min="1"
-            max="200"
-            value="90"
-            required
-          />
-        </div>
-
-        <div class="col form-group">
-          <label for="desc-length">Description Length:</label>
-          <input
-            type="number"
-            id="desc-length"
-            min="1"
-            max="300"
-            value="120"
-            required
-          />
-        </div>
-
-        <div class="col form-group">
-          <label for="keyword-count">Keyword Count:</label>
-          <input
-            type="number"
-            id="keyword-count"
-            min="10"
-            max="50"
-            value="20"
-            required
-          />
+          <div id="results-list" class="results-list">
+            <div class="no-results" id="no-results">No results to display</div>
+          </div>
         </div>
       </div>
-
-      <div class="form-group checkbox-group">
-        <input type="checkbox" id="is-freemium" />
-        <label for="is-freemium">Freemium API Key</label>
-      </div>
-
-      <button type="submit">Submit Configuration</button>
-    </form>
-
-    <div id="result" class="result">
-      <h3>Configuration Submitted</h3>
-      <pre id="result-content"></pre>
     </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Settings</h3>
+          <button id="close-settings" class="btn-icon">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="settings-form">
+            <div class="form-group">
+              <label for="settings-api-key">API Key</label>
+              <input type="text" id="settings-api-key" required />
+            </div>
+
+            <div class="form-group">
+              <label for="settings-title-length">Title Length</label>
+              <div class="range-container">
+                <input
+                  type="range"
+                  id="settings-title-length"
+                  min="40"
+                  max="200"
+                  value="90"
+                  required
+                />
+                <span class="range-value" id="settings-title-length-value"
+                  >90</span
+                >
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="settings-desc-length">Description Length</label>
+              <div class="range-container">
+                <input
+                  type="range"
+                  id="settings-desc-length"
+                  min="60"
+                  max="300"
+                  value="120"
+                  required
+                />
+                <span class="range-value" id="settings-desc-length-value"
+                  >120</span
+                >
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="settings-keyword-count">Keyword Count</label>
+              <div class="range-container">
+                <input
+                  type="range"
+                  id="settings-keyword-count"
+                  min="10"
+                  max="50"
+                  value="20"
+                  required
+                />
+                <span class="range-value" id="settings-keyword-count-value"
+                  >20</span
+                >
+              </div>
+            </div>
+
+            <div class="form-group checkbox-group">
+              <label class="toggle">
+                <input type="checkbox" id="settings-is-premium" />
+                <span class="toggle-slider"></span>
+                <span class="toggle-label">Premium API Key</span>
+              </label>
+              <p class="setting-hint">
+                Premium API allows processing up to 10x faster. Free API
+                processes only 2x fast.
+              </p>
+            </div>
+
+            <button type="submit" class="btn primary">Save Settings</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
     <script src="./resource/js/script.js"></script>
   </body>
 </html>

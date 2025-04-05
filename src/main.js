@@ -3,11 +3,76 @@ const path = require("path");
 const fs = require("fs");
 const { processImages } = require("./process/processImages");
 
+// Global reference to main window
+let mainWindow = null;
+
+// Settings path
+const settingsPath = path.join(app.getPath("userData"), "settings.json");
+
+// Default settings
+const defaultSettings = {
+  apiKey: "",
+  titleLength: 90,
+  descriptionLength: 120,
+  keywordCount: 20,
+  isPremium: false,
+};
+
+// Load settings
+function loadSettings() {
+  try {
+    if (fs.existsSync(settingsPath)) {
+      const data = fs.readFileSync(settingsPath, "utf8");
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error("Error loading settings:", error);
+  }
+  return defaultSettings;
+}
+
+// Save settings
+function saveSettings(settings) {
+  try {
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+    return true;
+  } catch (error) {
+    console.error("Error saving settings:", error);
+    return false;
+  }
+}
+
+// Progress tracking
+const progressTracker = {
+  total: 0,
+  processed: 0,
+  reset() {
+    this.total = 0;
+    this.processed = 0;
+  },
+  setTotal(total) {
+    this.total = total;
+    if (mainWindow) {
+      mainWindow.webContents.send("processing-start", { total });
+    }
+  },
+  increment() {
+    this.processed++;
+    if (mainWindow) {
+      mainWindow.webContents.send("processing-progress", {
+        current: this.processed,
+        total: this.total,
+        percent: Math.round((this.processed / this.total) * 100),
+      });
+    }
+  },
+};
+
 // Create the main window
 function createWindow() {
-  const mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+  mainWindow = new BrowserWindow({
+    width: 1100,
+    height: 800,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -40,7 +105,7 @@ async function countImagesInDirectory(directoryPath) {
 }
 
 app.whenReady().then(() => {
-  const mainWindow = createWindow();
+  mainWindow = createWindow();
 
   // Handle path selection from the main process
   ipcMain.handle("select-path", async () => {
@@ -61,17 +126,50 @@ app.whenReady().then(() => {
     return null;
   });
 
+  // Handle settings loading
+  ipcMain.handle("load-settings", async () => {
+    return loadSettings();
+  });
+
+  // Handle settings saving
+  ipcMain.handle("save-settings", async (event, settings) => {
+    return saveSettings(settings);
+  });
+
   // Handle form submission
   ipcMain.handle("submit-config", async (event, config) => {
     try {
+      // Load settings
+      const settings = loadSettings();
+
+      // Reset progress tracker and notify the renderer about starting
+      progressTracker.reset();
+
+      // Register progress event handlers
+      const onBatchStart = (total) => {
+        progressTracker.setTotal(total);
+      };
+
+      const onImageProcessed = () => {
+        progressTracker.increment();
+      };
+
+      // Add event listeners for the progress events
+      global.progressEvents = {
+        onBatchStart,
+        onImageProcessed,
+      };
+
+      // Process images with progress tracking
       const results = await processImages(
         config.path,
         {
-          titleLength: config.titleLength,
-          descriptionLength: config.descLength,
-          keywordCount: config.keywordCount,
+          titleLength: settings.titleLength,
+          descriptionLength: settings.descriptionLength,
+          keywordCount: settings.keywordCount,
+          isPremium: settings.isPremium,
         },
-        config.apiKey
+        settings.apiKey
       );
 
       console.log("Processing complete:", {
@@ -87,6 +185,9 @@ app.whenReady().then(() => {
       console.error("Error processing images:", error);
       mainWindow.webContents.send("processing-error", error.message);
       return { success: false, message: error.message };
+    } finally {
+      // Clean up event listeners
+      global.progressEvents = null;
     }
   });
 });

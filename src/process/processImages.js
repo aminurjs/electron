@@ -30,12 +30,31 @@ async function processImages(parentDir, options, apiKey) {
       outputPath: path.join(outputDir, file),
     }));
 
-  const { titleLength, descriptionLength, keywordCount } = options;
+  // Notify about batch start
+  if (global.progressEvents?.onBatchStart) {
+    global.progressEvents.onBatchStart(images.length);
+  }
+
+  const { titleLength, descriptionLength, keywordCount, isPremium } = options;
 
   try {
+    // Add a callback for tracking progress
+    const onImageProcessed = () => {
+      if (global.progressEvents?.onImageProcessed) {
+        global.progressEvents.onImageProcessed();
+      }
+    };
+
     const processResults = await processBatchWithConcurrencyLimit(
       images,
-      { titleLength, descriptionLength, keywordCount, outputDir },
+      {
+        titleLength,
+        descriptionLength,
+        keywordCount,
+        outputDir,
+        onImageProcessed,
+        isPremium,
+      },
       apiKey
     );
 
@@ -58,7 +77,14 @@ async function processImages(parentDir, options, apiKey) {
         // Process failed images individually
         const fallbackResults = await processFallbackIndividual(
           failedImageObjects,
-          { titleLength, descriptionLength, keywordCount, outputDir },
+          {
+            titleLength,
+            descriptionLength,
+            keywordCount,
+            outputDir,
+            onImageProcessed,
+            isPremium,
+          },
           apiKey
         );
 

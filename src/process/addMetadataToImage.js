@@ -39,7 +39,6 @@ async function addMetadataToImage(
 
   // Copy the original file to the output path
   await fs.promises.copyFile(imagePath, outputPath);
-  console.log(`Copied ${imagePath} to ${outputPath}`);
 
   const ep = new ExiftoolProcess(exiftoolBin);
   try {

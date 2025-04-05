@@ -16,7 +16,8 @@ const MAX_CONCURRENT_UPLOAD_REQUESTS = 10;
 
 async function processBatch(batch, options, apiKey) {
   const { model, generationConfig, safetySettings } = getGeminiConfig(apiKey);
-  const { titleLength, descriptionLength, keywordCount } = options;
+  const { titleLength, descriptionLength, keywordCount, onBatchComplete } =
+    options;
   const results = [];
   const tempFiles = [];
 
@@ -368,10 +369,21 @@ async function processBatch(batch, options, apiKey) {
       }
     });
 
+    // Call the onBatchComplete callback if provided
+    if (typeof onBatchComplete === "function") {
+      onBatchComplete();
+    }
+
     cleanupTempFilesAsync(tempFiles);
     return results;
   } catch (error) {
     cleanupTempFilesAsync(tempFiles);
+
+    // Even on error, we need to call the callback
+    if (typeof onBatchComplete === "function") {
+      onBatchComplete();
+    }
+
     return batch.map((image) => ({
       filename: image.originalname || path.basename(image.path),
       error: error.message || "Unknown error",
