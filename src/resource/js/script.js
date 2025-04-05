@@ -58,11 +58,6 @@ const elements = {
   helpDialog: document.getElementById("help-dialog"),
   closeHelp: document.getElementById("close-help"),
   closeHelpBtn: document.getElementById("close-help-btn"),
-
-  // Window controls
-  minimizeBtn: document.querySelector(".window-minimize"),
-  maximizeBtn: document.querySelector(".window-maximize"),
-  closeBtn: document.querySelector(".window-close"),
 };
 
 // Initialize the app
@@ -72,12 +67,6 @@ async function initApp() {
 
   // Set up event listeners
   setupEventListeners();
-
-  // Check initial window state
-  const windowState = await window.electronAPI.getWindowState();
-  if (windowState && windowState.isMaximized) {
-    updateMaximizeButtonState(true);
-  }
 }
 
 // Load settings from electron store
@@ -238,28 +227,6 @@ function setupEventListeners() {
     if (e.target === elements.helpDialog) {
       elements.helpDialog.classList.remove("active");
     }
-  });
-
-  // Window controls
-  elements.minimizeBtn.addEventListener("click", () => {
-    window.electronAPI.minimizeWindow();
-  });
-
-  elements.maximizeBtn.addEventListener("click", async () => {
-    const result = await window.electronAPI.maximizeWindow();
-    if (result.success) {
-      // The window state will be updated by the main process
-      // We'll get a window-maximized-changed event
-    }
-  });
-
-  elements.closeBtn.addEventListener("click", () => {
-    window.electronAPI.closeWindow();
-  });
-
-  // Listen for maximize state changes
-  window.electronAPI.onMaximizeChange((isMaximized) => {
-    updateMaximizeButtonState(isMaximized);
   });
 }
 
@@ -426,15 +393,6 @@ function displayResults(results) {
 
     elements.resultsList.appendChild(resultItem);
   });
-}
-
-// Handle maximize/restore button appearance
-function updateMaximizeButtonState(isMaximized) {
-  if (isMaximized) {
-    elements.maximizeBtn.classList.add("is-maximized");
-  } else {
-    elements.maximizeBtn.classList.remove("is-maximized");
-  }
 }
 
 // Initialize the app on load

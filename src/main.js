@@ -1,4 +1,11 @@
-const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  shell,
+  Menu,
+} = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { processImages } = require("./process/processImages");
@@ -167,7 +174,7 @@ function createWindow() {
     height: validWindowState.height,
     x: validWindowState.x,
     y: validWindowState.y,
-    frame: false, // Removes default window top bar
+    frame: true, // Use default window frame instead of frameless
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -181,20 +188,8 @@ function createWindow() {
     mainWindow.maximize();
   }
 
-  // Remove default menu bar
-  mainWindow.setMenu(null);
-
   // Load your UI
   mainWindow.loadFile(path.join(__dirname, "index.html"));
-
-  // Listen for maximize/unmaximize events
-  mainWindow.on("maximize", () => {
-    mainWindow.webContents.send("maximize-change", true);
-  });
-
-  mainWindow.on("unmaximize", () => {
-    mainWindow.webContents.send("maximize-change", false);
-  });
 
   // Save window state when window is resized or moved
   mainWindow.on("resize", () => {
@@ -232,6 +227,9 @@ async function countImagesInDirectory(directoryPath) {
 }
 
 app.whenReady().then(() => {
+  // Remove application menu
+  Menu.setApplicationMenu(null);
+
   mainWindow = createWindow();
 
   // Handle path selection from the main process
@@ -331,42 +329,6 @@ app.whenReady().then(() => {
     } else {
       return { success: false, message: "Directory does not exist" };
     }
-  });
-
-  // Handle window controls
-  ipcMain.handle("window-control", async (event, command) => {
-    switch (command) {
-      case "minimize":
-        mainWindow.minimize();
-        return { success: true };
-      case "maximize":
-        if (mainWindow.isMaximized()) {
-          mainWindow.unmaximize();
-        } else {
-          mainWindow.maximize();
-        }
-        return {
-          success: true,
-          isMaximized: mainWindow.isMaximized(),
-        };
-      case "close":
-        mainWindow.close();
-        return { success: true };
-      default:
-        return { success: false, message: "Unknown command" };
-    }
-  });
-
-  // Handle window state query
-  ipcMain.handle("get-window-state", () => {
-    if (!mainWindow) {
-      return { error: "Window not available" };
-    }
-    return {
-      isMaximized: mainWindow.isMaximized(),
-      isMinimized: mainWindow.isMinimized(),
-      isFullScreen: mainWindow.isFullScreen(),
-    };
   });
 });
 

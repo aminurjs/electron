@@ -33,88 +33,10 @@ body {
   overflow: hidden;
 }
 
-/* Desktop Window Frame */
-.window-frame {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-}
-
-/* Title Bar */
-.title-bar {
-  background-color: var(--header-bg);
-  color: var(--text-light);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 16px;
-  -webkit-app-region: drag; /* Makes the title bar draggable */
-}
-
-.window-title {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.window-controls {
-  display: flex;
-  -webkit-app-region: no-drag; /* Ensures buttons are clickable */
-}
-
-/* Window control buttons */
-.window-control {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  margin-left: 8px;
-  cursor: pointer;
-  transition: transform 0.2s, opacity 0.2s;
-  position: relative;
-}
-
-.window-control:hover {
-  transform: scale(1.1);
-  opacity: 0.9;
-}
-
-.window-control:active {
-  transform: scale(0.95);
-}
-
-.window-close {
-  background-color: #ff5f57;
-}
-
-.window-minimize {
-  background-color: #febc2e;
-}
-
-.window-maximize {
-  background-color: #28c840;
-  position: relative;
-}
-
-/* Show a different icon for restore (when window is maximized) */
-.window-maximize.is-maximized::before {
-  content: "";
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  border: 1px solid rgba(0, 0, 0, 0.2);
-  background-color: #28c840;
-}
-
 /* Main App Content */
 .app-container {
   display: flex;
-  flex: 1;
+  height: 100vh;
   overflow: hidden;
 }
 

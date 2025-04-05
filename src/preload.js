@@ -24,16 +24,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   openOutputDirectory: (path) =>
     ipcRenderer.invoke("open-output-directory", path),
 
-  // Window controls
-  minimizeWindow: () => ipcRenderer.invoke("window-control", "minimize"),
-  maximizeWindow: () => ipcRenderer.invoke("window-control", "maximize"),
-  closeWindow: () => ipcRenderer.invoke("window-control", "close"),
-  onMaximizeChange: (callback) =>
-    ipcRenderer.on("maximize-change", (_, isMaximized) =>
-      callback(isMaximized)
-    ),
-  getWindowState: () => ipcRenderer.invoke("get-window-state"),
-
   // Cleanup function to remove listeners when needed
   removeAllListeners: (channel) => {
     if (channel) {
@@ -44,7 +34,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
         "processing-progress",
         "processing-results",
         "processing-error",
-        "maximize-change",
       ].forEach((channel) => ipcRenderer.removeAllListeners(channel));
     }
   },
