@@ -128,7 +128,7 @@ async function processImages(parentDir, options, apiKey) {
       successful: successfulResults,
       failed: failedResults,
       allResults: [...successfulResults, ...failedResults],
-      outputDir: outputDir,
+      outputDirectory: outputDir,
     };
   } catch (error) {
     console.error(`Error in background processing for batch:`, error);

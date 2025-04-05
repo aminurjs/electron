@@ -3,97 +3,191 @@
   <head>
     <meta charset="UTF-8" />
     <title>Image Metadata Generator</title>
-    <link rel="stylesheet" href="./resource/css/styles.css" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
+    <link rel="stylesheet" href="./resource/css/styles.css" />
   </head>
   <body>
-    <div class="app-container">
-      <div class="app-header">
-        <h1>Image Metadata Generator</h1>
-        <p class="subtitle">Powered by Gemini AI</p>
-        <button id="settings-btn" class="btn-icon" title="Settings">
-          <i class="fas fa-cog"></i>
-        </button>
+    <div class="window-frame">
+      <!-- Title Bar (for desktop app look) -->
+      <div class="title-bar">
+        <div class="window-title">Image Metadata Generator</div>
+        <div class="window-controls">
+          <div class="window-control window-minimize"></div>
+          <div class="window-control window-maximize"></div>
+          <div class="window-control window-close"></div>
+        </div>
       </div>
 
-      <div class="main-content">
-        <div class="config-panel">
-          <form id="config-form">
-            <div class="form-group">
-              <label>Select Images Directory</label>
-              <div class="path-selection">
-                <div id="selected-path" class="path-display">
-                  No directory selected
-                </div>
-                <button type="button" id="select-path-btn" class="btn primary">
-                  Browse
-                </button>
-              </div>
-              <div id="image-count" class="badge"></div>
-            </div>
+      <!-- Main Application -->
+      <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+          <div class="app-logo">
+            <i class="fas fa-images"></i>
+            <h1>Metadata Generator</h1>
+          </div>
 
-            <button type="submit" id="submit-btn" class="btn primary">
-              Generate
-            </button>
-          </form>
+          <div class="sidebar-section">
+            <h3>WORKSPACE</h3>
+            <ul class="sidebar-menu">
+              <li class="sidebar-menu-item active">
+                <i class="fas fa-home"></i> Main
+              </li>
+            </ul>
+          </div>
+
+          <div class="sidebar-footer">
+            <ul class="sidebar-menu">
+              <li class="sidebar-menu-item" id="settings-btn">
+                <i class="fas fa-cog"></i> Settings
+              </li>
+              <li class="sidebar-menu-item" id="help-btn">
+                <i class="fas fa-question-circle"></i> Help
+              </li>
+            </ul>
+          </div>
         </div>
 
-        <div class="results-panel" id="results-panel">
-          <h2>Processing Results</h2>
+        <!-- Main Content -->
+        <div class="main-content">
+          <!-- Content Area -->
+          <div class="content-area">
+            <!-- Configuration Panel -->
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title">Configuration</div>
+              </div>
 
-          <div id="progress-container" class="progress-container hidden">
-            <div class="progress-header">
-              <span id="progress-status">Processing images...</span>
-              <span id="progress-count">0/0</span>
+              <form id="config-form">
+                <div class="form-group">
+                  <label>Select Images Directory</label>
+                  <div class="path-selection">
+                    <div id="selected-path" class="path-display">
+                      No directory selected
+                    </div>
+                    <button
+                      type="button"
+                      id="select-path-btn"
+                      class="btn secondary"
+                    >
+                      Browse
+                    </button>
+                  </div>
+                  <div id="image-count" class="badge">0 images found</div>
+                </div>
+
+                <div class="form-group">
+                  <button type="submit" id="submit-btn" class="btn primary">
+                    <i class="fas fa-bolt"></i> Generate Metadata
+                  </button>
+                </div>
+              </form>
             </div>
-            <div class="progress-bar-container">
-              <div id="progress-bar" class="progress-bar"></div>
+
+            <!-- Results Panel -->
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title">Processing Results</div>
+              </div>
+
+              <div id="progress-container" class="progress-container hidden">
+                <div class="progress-header">
+                  <span id="progress-status">Processing images...</span>
+                  <span id="progress-count">0/0</span>
+                </div>
+                <div class="progress-bar-container">
+                  <div
+                    id="progress-bar"
+                    class="progress-bar"
+                    style="width: 0%"
+                  ></div>
+                </div>
+              </div>
+
+              <div id="results-summary" class="summary-cards hidden">
+                <div class="summary-card">
+                  <span class="summary-label">Total</span>
+                  <span id="total-count" class="summary-value">0</span>
+                </div>
+                <div class="summary-card">
+                  <span class="summary-label">Successful</span>
+                  <span id="success-count" class="summary-value">0</span>
+                </div>
+                <div class="summary-card">
+                  <span class="summary-label">Failed</span>
+                  <span id="failed-count" class="summary-value">0</span>
+                </div>
+                <div class="summary-card full-width">
+                  <span class="summary-label">Output Directory</span>
+                  <span id="output-dir" class="summary-value output-path"
+                    >-</span
+                  >
+                </div>
+              </div>
+
+              <div id="results-list" class="results-list">
+                <!-- Results will be populated here -->
+              </div>
+
+              <div id="initial-state" class="initial-state">
+                <div class="initial-state-icon">
+                  <i class="fas fa-arrow-up"></i>
+                </div>
+                <h3>Ready to Process Images</h3>
+                <p>
+                  Select a directory containing images and click "Generate
+                  Metadata" to begin.
+                </p>
+                <p>Results will appear here after processing.</p>
+              </div>
+
+              <p id="no-results" class="no-results hidden">
+                No results found. All images may have failed to process.
+              </p>
             </div>
           </div>
 
-          <div id="results-summary" class="results-summary hidden">
-            <div class="summary-item">
-              <span class="summary-label">Total</span>
-              <span id="total-count" class="summary-value">0</span>
+          <!-- Status Bar -->
+          <div class="status-bar">
+            <div class="status-item">
+              <i class="fas fa-circle" style="color: #2ecc71"></i>
+              API Connected
             </div>
-            <div class="summary-item">
-              <span class="summary-label">Successful</span>
-              <span id="success-count" class="summary-value">0</span>
+            <div class="status-item">
+              <i class="fas fa-database"></i>
+              Using Gemini Pro Vision
             </div>
-            <div class="summary-item">
-              <span class="summary-label">Failed</span>
-              <span id="failed-count" class="summary-value">0</span>
+            <div class="status-item">
+              <i class="fas fa-clock"></i>
+              Last Run: 2 mins ago
             </div>
-            <div class="summary-item full-width">
-              <span class="summary-label">Output Directory</span>
-              <span id="output-dir" class="summary-value output-path">-</span>
-            </div>
-          </div>
-
-          <div id="results-list" class="results-list">
-            <div class="no-results" id="no-results">No results to display</div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Settings Modal -->
-    <div id="settings-modal" class="modal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>Settings</h3>
-          <button id="close-settings" class="btn-icon">
+    <!-- Settings Dialog -->
+    <div class="dialog-overlay" id="settings-dialog">
+      <div class="dialog">
+        <div class="dialog-header">
+          <div class="dialog-title">API Settings</div>
+          <button class="dialog-close" id="close-settings">
             <i class="fas fa-times"></i>
           </button>
         </div>
-        <div class="modal-body">
+        <div class="dialog-body">
           <form id="settings-form">
             <div class="form-group">
-              <label for="settings-api-key">API Key</label>
-              <input type="text" id="settings-api-key" required />
+              <label for="settings-api-key">Gemini API Key</label>
+              <input
+                type="text"
+                id="settings-api-key"
+                placeholder="Enter your API key here"
+                required
+              />
             </div>
 
             <div class="form-group">
@@ -147,20 +241,93 @@
               </div>
             </div>
 
-            <div class="form-group checkbox-group">
+            <div class="form-group">
               <label class="toggle">
                 <input type="checkbox" id="settings-is-premium" />
                 <span class="toggle-slider"></span>
                 <span class="toggle-label">Premium API Key</span>
               </label>
               <p class="setting-hint">
-                Premium API allows processing up to 10x faster. Free API
-                processes only 2x fast.
+                Premium API allows processing up to 10x faster
               </p>
             </div>
-
-            <button type="submit" class="btn primary">Save Settings</button>
           </form>
+        </div>
+        <div class="dialog-footer">
+          <button class="btn secondary" id="cancel-settings">Cancel</button>
+          <button class="btn primary" id="save-settings">Save Changes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Help Dialog -->
+    <div class="dialog-overlay" id="help-dialog">
+      <div class="dialog">
+        <div class="dialog-header">
+          <div class="dialog-title">Help & Documentation</div>
+          <button class="dialog-close" id="close-help">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="dialog-body">
+          <h3>Quick Start Guide</h3>
+          <ol class="help-steps">
+            <li>
+              First, click on <strong>Settings</strong> to configure your API
+              key and preferences.
+            </li>
+            <li>
+              Select the directory containing your images using the
+              <strong>Browse</strong> button.
+            </li>
+            <li>
+              Click <strong>Generate Metadata</strong> to start the AI
+              processing.
+            </li>
+            <li>
+              View results and open the output directory when processing is
+              complete.
+            </li>
+          </ol>
+
+          <h3>Settings</h3>
+          <ul class="help-list">
+            <li>
+              <strong>API Key:</strong> Your Gemini API key for AI image
+              analysis
+            </li>
+            <li>
+              <strong>Title Length:</strong> Number of characters for generated
+              titles
+            </li>
+            <li>
+              <strong>Description Length:</strong> Number of characters for
+              descriptions
+            </li>
+            <li>
+              <strong>Keyword Count:</strong> Number of keywords to generate for
+              each image
+            </li>
+            <li>
+              <strong>Premium API:</strong> Enable this for faster processing if
+              you have a premium API key
+            </li>
+          </ul>
+
+          <h3>Output</h3>
+          <p>
+            Processed images are saved in a
+            <strong>processed-images</strong> folder with the following metadata
+            embedded:
+          </p>
+          <ul class="help-list">
+            <li>Title - A descriptive title for the image</li>
+            <li>Description - Detailed description of image content</li>
+            <li>Keywords - SEO-optimized keywords for the image</li>
+          </ul>
+        </div>
+        <div class="dialog-footer">
+          <button class="btn primary" id="close-help-btn">Got It</button>
         </div>
       </div>
     </div>

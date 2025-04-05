@@ -1,4 +1,6 @@
 let selectedPath = null;
+let outputDirectory = null;
+
 const elements = {
   selectPathBtn: document.getElementById("select-path-btn"),
   selectedPath: document.getElementById("selected-path"),
@@ -29,10 +31,13 @@ const elements = {
 
   resultsList: document.getElementById("results-list"),
   noResults: document.getElementById("no-results"),
+  initialState: document.getElementById("initial-state"),
 
   settingsBtn: document.getElementById("settings-btn"),
-  settingsModal: document.getElementById("settings-modal"),
+  settingsDialog: document.getElementById("settings-dialog"),
   closeSettings: document.getElementById("close-settings"),
+  cancelSettings: document.getElementById("cancel-settings"),
+  saveSettings: document.getElementById("save-settings"),
   settingsForm: document.getElementById("settings-form"),
   settingsApiKey: document.getElementById("settings-api-key"),
   settingsTitleLength: document.getElementById("settings-title-length"),
@@ -48,6 +53,16 @@ const elements = {
     "settings-keyword-count-value"
   ),
   settingsIsPremium: document.getElementById("settings-is-premium"),
+
+  helpBtn: document.getElementById("help-btn"),
+  helpDialog: document.getElementById("help-dialog"),
+  closeHelp: document.getElementById("close-help"),
+  closeHelpBtn: document.getElementById("close-help-btn"),
+
+  // Window controls
+  minimizeBtn: document.querySelector(".window-minimize"),
+  maximizeBtn: document.querySelector(".window-maximize"),
+  closeBtn: document.querySelector(".window-close"),
 };
 
 // Initialize the app
@@ -57,6 +72,12 @@ async function initApp() {
 
   // Set up event listeners
   setupEventListeners();
+
+  // Check initial window state
+  const windowState = await window.electronAPI.getWindowState();
+  if (windowState && windowState.isMaximized) {
+    updateMaximizeButtonState(true);
+  }
 }
 
 // Load settings from electron store
@@ -122,19 +143,23 @@ function setupEventListeners() {
       elements.settingsKeywordCount.value;
   });
 
-  // Settings modal
+  // Settings dialog
   elements.settingsBtn.addEventListener("click", () => {
-    elements.settingsModal.classList.add("active");
+    elements.settingsDialog.classList.add("active");
   });
 
   elements.closeSettings.addEventListener("click", () => {
-    elements.settingsModal.classList.remove("active");
+    elements.settingsDialog.classList.remove("active");
+  });
+
+  elements.cancelSettings.addEventListener("click", () => {
+    elements.settingsDialog.classList.remove("active");
   });
 
   // Close modal when clicking outside
-  elements.settingsModal.addEventListener("click", (e) => {
-    if (e.target === elements.settingsModal) {
-      elements.settingsModal.classList.remove("active");
+  elements.settingsDialog.addEventListener("click", (e) => {
+    if (e.target === elements.settingsDialog) {
+      elements.settingsDialog.classList.remove("active");
     }
   });
 
@@ -142,7 +167,13 @@ function setupEventListeners() {
   elements.settingsForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     await saveSettings();
-    elements.settingsModal.classList.remove("active");
+    elements.settingsDialog.classList.remove("active");
+  });
+
+  // This is needed since the form can be submitted by clicking the save button outside the form
+  elements.saveSettings.addEventListener("click", async () => {
+    await saveSettings();
+    elements.settingsDialog.classList.remove("active");
   });
 
   // Handle directory selection
@@ -166,6 +197,14 @@ function setupEventListeners() {
       return;
     }
 
+    // Check if API key is set in settings
+    const settings = await window.electronAPI.loadSettings();
+    if (!settings || !settings.apiKey) {
+      alert("Please set your API key in settings first");
+      elements.settingsDialog.classList.add("active");
+      return;
+    }
+
     // Set up event listeners for processing
     setupProcessingListeners();
 
@@ -180,6 +219,48 @@ function setupEventListeners() {
       console.error("Error submitting config:", error);
     }
   });
+
+  // Help dialog
+  document.querySelector("#help-btn").addEventListener("click", () => {
+    elements.helpDialog.classList.add("active");
+  });
+
+  elements.closeHelp.addEventListener("click", () => {
+    elements.helpDialog.classList.remove("active");
+  });
+
+  elements.closeHelpBtn.addEventListener("click", () => {
+    elements.helpDialog.classList.remove("active");
+  });
+
+  // Close help modal when clicking outside
+  elements.helpDialog.addEventListener("click", (e) => {
+    if (e.target === elements.helpDialog) {
+      elements.helpDialog.classList.remove("active");
+    }
+  });
+
+  // Window controls
+  elements.minimizeBtn.addEventListener("click", () => {
+    window.electronAPI.minimizeWindow();
+  });
+
+  elements.maximizeBtn.addEventListener("click", async () => {
+    const result = await window.electronAPI.maximizeWindow();
+    if (result.success) {
+      // The window state will be updated by the main process
+      // We'll get a window-maximized-changed event
+    }
+  });
+
+  elements.closeBtn.addEventListener("click", () => {
+    window.electronAPI.closeWindow();
+  });
+
+  // Listen for maximize state changes
+  window.electronAPI.onMaximizeChange((isMaximized) => {
+    updateMaximizeButtonState(isMaximized);
+  });
 }
 
 // Set up event listeners for processing events
@@ -190,6 +271,9 @@ function setupProcessingListeners() {
   // Processing start
   window.electronAPI.onProcessingStart((event, data) => {
     console.log("Processing started:", data);
+
+    // Hide initial state
+    elements.initialState.classList.add("hidden");
 
     // Show progress container
     elements.progressContainer.classList.remove("hidden");
@@ -202,7 +286,7 @@ function setupProcessingListeners() {
 
     // Clear previous results
     elements.resultsList.innerHTML = "";
-    elements.noResults.style.display = "block";
+    elements.noResults.classList.add("hidden");
 
     // Disable submit button
     elements.submitBtn.disabled = true;
@@ -226,30 +310,68 @@ function setupProcessingListeners() {
   window.electronAPI.onProcessingResults((event, results) => {
     console.log("Processing complete:", results);
 
-    // Hide progress container and show summary
+    // Save output directory path
+    outputDirectory = results.outputDirectory;
+
+    // Hide progress container, initial state, and show summary
     elements.progressContainer.classList.add("hidden");
+    elements.initialState.classList.add("hidden");
     elements.resultsSummary.classList.remove("hidden");
 
     // Update summary counts
     elements.totalCount.textContent = results.total;
     elements.successCount.textContent = results.successful.length;
     elements.failedCount.textContent = results.failed.length;
-    elements.outputDir.textContent = results.outputDir;
+
+    // Update output directory and make it clickable if exists
+    if (outputDirectory) {
+      elements.outputDir.innerHTML = `<i class="fas fa-folder-open"></i> ${outputDirectory}`;
+      elements.outputDir.classList.add("clickable");
+      elements.outputDir.title = "Click to open folder";
+
+      // Add click event to open the directory
+      elements.outputDir.addEventListener("click", async () => {
+        try {
+          const result = await window.electronAPI.openOutputDirectory(
+            outputDirectory
+          );
+          if (!result.success) {
+            console.error("Failed to open directory:", result.message);
+            alert(`Could not open the directory: ${result.message}`);
+          }
+        } catch (error) {
+          console.error("Error opening directory:", error);
+          alert("An error occurred while trying to open the directory.");
+        }
+      });
+    } else {
+      elements.outputDir.textContent = "Not available";
+      elements.outputDir.classList.remove("clickable");
+      elements.outputDir.title = "";
+    }
 
     // Display results list
     displayResults(results.allResults);
 
     // Re-enable submit button
     elements.submitBtn.disabled = false;
-    elements.submitBtn.textContent = "Process Images";
+    elements.submitBtn.textContent = "Generate Metadata";
   });
 
   // Processing error
   window.electronAPI.onProcessingError((event, errorMessage) => {
     console.error("Processing error:", errorMessage);
 
-    // Hide progress container
+    // Hide progress container and initial state
     elements.progressContainer.classList.add("hidden");
+    elements.initialState.classList.add("hidden");
+
+    // Show summary cards with zeros
+    elements.resultsSummary.classList.remove("hidden");
+    elements.totalCount.textContent = "0";
+    elements.successCount.textContent = "0";
+    elements.failedCount.textContent = "0";
+    elements.outputDir.textContent = "Not available";
 
     // Show error in results panel
     elements.resultsList.innerHTML = `
@@ -261,22 +383,22 @@ function setupProcessingListeners() {
         <div class="result-message">${errorMessage}</div>
       </div>
     `;
-    elements.noResults.style.display = "none";
+    elements.noResults.classList.add("hidden");
 
     // Re-enable submit button
     elements.submitBtn.disabled = false;
-    elements.submitBtn.textContent = "Process Images";
+    elements.submitBtn.textContent = "Generate Metadata";
   });
 }
 
 // Display results in the results list
 function displayResults(results) {
   if (!results || results.length === 0) {
-    elements.noResults.style.display = "block";
+    elements.noResults.classList.remove("hidden");
     return;
   }
 
-  elements.noResults.style.display = "none";
+  elements.noResults.classList.add("hidden");
   elements.resultsList.innerHTML = "";
 
   results.forEach((result) => {
@@ -304,6 +426,15 @@ function displayResults(results) {
 
     elements.resultsList.appendChild(resultItem);
   });
+}
+
+// Handle maximize/restore button appearance
+function updateMaximizeButtonState(isMaximized) {
+  if (isMaximized) {
+    elements.maximizeBtn.classList.add("is-maximized");
+  } else {
+    elements.maximizeBtn.classList.remove("is-maximized");
+  }
 }
 
 // Initialize the app on load
