@@ -8,6 +8,8 @@ let mainWindow = null;
 
 // Settings path
 const settingsPath = path.join(app.getPath("userData"), "settings.json");
+// Window state path
+const windowStatePath = path.join(app.getPath("userData"), "window-state.json");
 
 // Default settings
 const defaultSettings = {
@@ -16,6 +18,15 @@ const defaultSettings = {
   descriptionLength: 120,
   keywordCount: 20,
   isPremium: false,
+};
+
+// Default window state
+const defaultWindowState = {
+  width: 1100,
+  height: 800,
+  isMaximized: false,
+  x: undefined,
+  y: undefined,
 };
 
 // Load settings
@@ -38,6 +49,83 @@ function saveSettings(settings) {
     return true;
   } catch (error) {
     console.error("Error saving settings:", error);
+    return false;
+  }
+}
+
+// Load window state
+function loadWindowState() {
+  try {
+    if (fs.existsSync(windowStatePath)) {
+      const data = fs.readFileSync(windowStatePath, "utf8");
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error("Error loading window state:", error);
+  }
+  return defaultWindowState;
+}
+
+// Function to ensure the window is visible on screen
+function ensureWindowVisible(windowState) {
+  const { screen } = require("electron");
+  const displays = screen.getAllDisplays();
+
+  // Ensure minimum window size
+  const MIN_WIDTH = 800;
+  const MIN_HEIGHT = 600;
+
+  const newState = { ...windowState };
+
+  // Apply minimum size constraints
+  newState.width = Math.max(newState.width, MIN_WIDTH);
+  newState.height = Math.max(newState.height, MIN_HEIGHT);
+
+  if (newState.x === undefined || newState.y === undefined) {
+    return newState;
+  }
+
+  // Check if window is within any display bounds
+  const visible = displays.some((display) => {
+    const bounds = display.bounds;
+    return (
+      newState.x >= bounds.x &&
+      newState.y >= bounds.y &&
+      newState.x + newState.width <= bounds.x + bounds.width &&
+      newState.y + newState.height <= bounds.y + bounds.height
+    );
+  });
+
+  // If not visible on any display, reset position
+  if (!visible) {
+    delete newState.x;
+    delete newState.y;
+  }
+
+  return newState;
+}
+
+// Save window state
+function saveWindowState(window) {
+  if (!window) return false;
+
+  const windowState = {
+    isMaximized: window.isMaximized(),
+    width: window.isMaximized()
+      ? defaultWindowState.width
+      : window.getBounds().width,
+    height: window.isMaximized()
+      ? defaultWindowState.height
+      : window.getBounds().height,
+    x: window.getBounds().x,
+    y: window.getBounds().y,
+  };
+
+  try {
+    fs.writeFileSync(windowStatePath, JSON.stringify(windowState, null, 2));
+    return true;
+  } catch (error) {
+    console.error("Error saving window state:", error);
     return false;
   }
 }
@@ -69,9 +157,16 @@ const progressTracker = {
 };
 
 function createWindow() {
+  // Load saved window state
+  const windowState = loadWindowState();
+  // Ensure window is visible on a connected display
+  const validWindowState = ensureWindowVisible(windowState);
+
   mainWindow = new BrowserWindow({
-    width: 1100,
-    height: 800,
+    width: validWindowState.width,
+    height: validWindowState.height,
+    x: validWindowState.x,
+    y: validWindowState.y,
     frame: false, // Removes default window top bar
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -80,6 +175,11 @@ function createWindow() {
       devTools: !app.isPackaged, // Disable devtools in production
     },
   });
+
+  // Set window to maximized state if it was maximized when closed
+  if (validWindowState.isMaximized) {
+    mainWindow.maximize();
+  }
 
   // Remove default menu bar
   mainWindow.setMenu(null);
@@ -94,6 +194,15 @@ function createWindow() {
 
   mainWindow.on("unmaximize", () => {
     mainWindow.webContents.send("maximize-change", false);
+  });
+
+  // Save window state when window is resized or moved
+  mainWindow.on("resize", () => {
+    saveWindowState(mainWindow);
+  });
+
+  mainWindow.on("move", () => {
+    saveWindowState(mainWindow);
   });
 
   // Only open DevTools in development
@@ -262,6 +371,11 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
+  // Save window state when window is closed
+  if (mainWindow) {
+    saveWindowState(mainWindow);
+  }
+
   if (process.platform !== "darwin") app.quit();
 });
 

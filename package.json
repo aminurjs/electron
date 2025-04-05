@@ -4,11 +4,38 @@
   "description": "Metadata generator",
   "main": "src/main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.genmeta.app",
+    "productName": "GenMeta",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "src/resource/img/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "src/resource/img/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "src/resource/img/icon.png"
+    }
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/aminurjs/electron.git"
+    "url": "git+https://github.com/aminurjs/genmeta-app.git"
   },
   "keywords": [
     "genmeta",
@@ -18,9 +45,9 @@
   "author": "Aminur Rahman",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/aminurjs/electron/issues"
+    "url": "https://github.com/aminurjs/genmeta-app/issues"
   },
-  "homepage": "https://github.com/aminurjs/electron#readme",
+  "homepage": "https://github.com/aminurjs/genmeta-app#readme",
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
     "dist-exiftool": "^10.53.0",
@@ -31,6 +58,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.23.0",
+    "electron-builder": "^24.13.3",
     "eslint": "^9.23.0",
     "globals": "^16.0.0",
     "jiti": "^2.4.2"

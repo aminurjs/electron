@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
         "processing-progress",
         "processing-results",
         "processing-error",
+        "maximize-change",
       ].forEach((channel) => ipcRenderer.removeAllListeners(channel));
     }
   },
