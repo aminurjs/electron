@@ -1,12 +1,13 @@
 {
   "name": "genmeta-app",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Metadata generator",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "nodemon --exec electron .",
-    "build": "electron-builder",
+    "clean": "rimraf dist",
+    "build": "npm run clean && electron-builder",
     "build:win": "electron-builder --win --x64"
   },
   "build": {
@@ -19,8 +20,18 @@
     ],
     "win": {
       "target": "nsis",
+      "icon": "src/assets/icon.ico",
       "artifactName": "${productName}-Setup-${version}.${ext}",
       "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "src/assets/icon.ico",
+      "uninstallerIcon": "src/assets/icon.ico",
+      "installerHeaderIcon": "src/assets/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
     },
     "mac": {
       "target": "dmg",
@@ -63,6 +74,8 @@
     "eslint": "^9.23.0",
     "globals": "^16.0.0",
     "jiti": "^2.4.2",
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.1.9",
+    "png-to-ico": "^2.1.8",
+    "rimraf": "^6.0.1"
   }
 }
