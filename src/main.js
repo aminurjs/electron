@@ -175,96 +175,6 @@ process.on("uncaughtException", (err) => {
   console.error("Uncaught Exception:", err);
 });
 
-// Add dedicated test IPC handler
-function registerTestHandler() {
-  logStartup("Registering test IPC handler");
-
-  const { ipcMain } = require("electron");
-
-  ipcMain.handle("test-processing", async (event, config) => {
-    logStartup(
-      `Test processing requested with config: ${JSON.stringify(config)}`
-    );
-
-    try {
-      // Send test events with a delay to simulate processing
-      setTimeout(() => {
-        if (global.mainWindow && !global.mainWindow.isDestroyed()) {
-          global.mainWindow.webContents.send("processing-start", { total: 3 });
-          logStartup("Sent test processing-start event");
-
-          // Send progress updates
-          let current = 0;
-          const interval = setInterval(() => {
-            current++;
-            if (global.mainWindow && !global.mainWindow.isDestroyed()) {
-              global.mainWindow.webContents.send("processing-progress", {
-                current,
-                total: 3,
-                percent: Math.round((current / 3) * 100),
-              });
-              logStartup(`Sent test progress update ${current}/3`);
-            } else {
-              clearInterval(interval);
-              logStartup("Cleared interval - window no longer available");
-            }
-
-            if (current >= 3) {
-              clearInterval(interval);
-
-              // Send results
-              setTimeout(() => {
-                if (global.mainWindow && !global.mainWindow.isDestroyed()) {
-                  global.mainWindow.webContents.send("processing-results", {
-                    total: 3,
-                    successful: [
-                      { filename: "test1.jpg", title: "Test Title 1" },
-                      { filename: "test2.jpg", title: "Test Title 2" },
-                    ],
-                    failed: [
-                      { filename: "test3.jpg", error: "Test error message" },
-                    ],
-                    allResults: [
-                      { filename: "test1.jpg", title: "Test Title 1" },
-                      { filename: "test2.jpg", title: "Test Title 2" },
-                      { filename: "test3.jpg", error: "Test error message" },
-                    ],
-                    outputDirectory: config.path || app.getPath("desktop"),
-                  });
-                  logStartup("Sent test processing-results event");
-                }
-              }, 500);
-            }
-          }, 1000);
-        }
-      }, 500);
-
-      return {
-        success: true,
-        message: "Test processing started",
-        testMode: true,
-      };
-    } catch (error) {
-      logStartup(`Test processing error: ${error.message}\n${error.stack}`);
-
-      if (global.mainWindow && !global.mainWindow.isDestroyed()) {
-        global.mainWindow.webContents.send(
-          "processing-error",
-          "Test error: " + error.message
-        );
-      }
-
-      return {
-        success: false,
-        message: error.message,
-        testMode: true,
-      };
-    }
-  });
-
-  logStartup("Test IPC handler registered successfully");
-}
-
 app.whenReady().then(() => {
   // Remove menu for better performance and reduced memory usage
   Menu.setApplicationMenu(null);
@@ -280,15 +190,6 @@ app.whenReady().then(() => {
       logStartup("Main window closed");
       global.mainWindow = null;
     });
-
-    // Register test IPC handlers
-    try {
-      registerTestHandler();
-    } catch (error) {
-      logStartup(
-        `Failed to register test IPC handler: ${error.message}\nStack: ${error.stack}`
-      );
-    }
 
     // Register all IPC handlers with error handling
     try {

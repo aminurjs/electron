@@ -48,7 +48,7 @@ const listenToIPC = (channel, callback) => {
 
 // Expose protected APIs to the renderer process
 const api = {
-  // Generic IPC invoke method for testing
+  // Generic IPC invoke method
   invoke: (channel, ...args) => invokeIPC(channel, ...args),
 
   // File system module

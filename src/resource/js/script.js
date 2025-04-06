@@ -73,9 +73,6 @@ async function initApp() {
   // Set up processing listeners
   setupProcessingListeners();
 
-  // Add test button for debugging
-  setupTestButton();
-
   // Load settings
   await loadSettings();
 
@@ -460,39 +457,6 @@ function displayResults(results) {
 
     elements.resultsList.appendChild(resultItem);
   });
-}
-
-// Add the test button setup function
-function setupTestButton() {
-  // Create a test button for debugging purposes
-  const testButton = document.createElement("button");
-  testButton.id = "test-button";
-  testButton.className = "button is-warning is-small";
-  testButton.textContent = "Test IPC";
-  testButton.style.position = "fixed";
-  testButton.style.bottom = "10px";
-  testButton.style.right = "10px";
-  testButton.style.zIndex = "1000";
-
-  // Add event listener
-  testButton.addEventListener("click", async () => {
-    console.log("Triggering test IPC call");
-    try {
-      // Use direct IPC invocation through preload wrapper
-      const testPath = selectedPath || "/tmp"; // Use a fallback path
-      const result = await window.electronAPI.invoke("test-processing", {
-        path: testPath,
-        test: true,
-      });
-      console.log("Test IPC result:", result);
-    } catch (error) {
-      console.error("Test IPC error:", error);
-    }
-  });
-
-  // Add to document
-  document.body.appendChild(testButton);
-  console.log("Test button added to UI");
 }
 
 // Initialize the app on load
