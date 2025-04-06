@@ -180,6 +180,25 @@
             </div>
 
             <div class="form-group">
+              <label for="settings-secret-key">Secret Key</label>
+              <div class="input-with-icon">
+                <input
+                  type="password"
+                  id="settings-secret-key"
+                  placeholder="Enter your secret key here"
+                  required
+                />
+                <button
+                  type="button"
+                  class="toggle-password"
+                  id="toggle-secret-key"
+                >
+                  <i class="fas fa-eye"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
               <label for="settings-title-length">Title Length</label>
               <div class="range-container">
                 <input
@@ -284,6 +303,10 @@
             <li>
               <strong>API Key:</strong> Your Gemini API key for AI image
               analysis
+            </li>
+            <li>
+              <strong>Secret Key:</strong> Your account's secret key for
+              validating access
             </li>
             <li>
               <strong>Title Length:</strong> Number of characters for generated

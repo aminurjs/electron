@@ -17,6 +17,10 @@ const elements = {
   isPremium: document.getElementById("is-premium"),
   submitBtn: document.getElementById("submit-btn"),
 
+  // Add secret key elements
+  settingsSecretKey: document.getElementById("settings-secret-key"),
+  toggleSecretKey: document.getElementById("toggle-secret-key"),
+
   resultsPanel: document.getElementById("results-panel"),
   progressContainer: document.getElementById("progress-container"),
   progressStatus: document.getElementById("progress-status"),
@@ -67,6 +71,11 @@ const elements = {
 async function initApp() {
   console.log("Initializing app");
 
+  // Debug: check if all settings elements are found correctly
+  console.log("Settings API Key Element:", elements.settingsApiKey);
+  console.log("Settings Secret Key Element:", elements.settingsSecretKey);
+  console.log("Toggle Secret Key Button:", elements.toggleSecretKey);
+
   // Set up event listeners
   setupEventListeners();
 
@@ -100,20 +109,51 @@ async function initApp() {
 async function loadSettings() {
   try {
     const settings = await window.electronAPI.settings.load();
+    console.log("Raw settings loaded:", settings);
 
-    // Update settings form with loaded values
-    elements.settingsApiKey.value = settings.apiKey || "";
-    elements.settingsTitleLength.value = settings.titleLength || 90;
-    elements.settingsTitleLengthValue.textContent = settings.titleLength || 90;
-    elements.settingsDescLength.value = settings.descriptionLength || 120;
-    elements.settingsDescLengthValue.textContent =
-      settings.descriptionLength || 120;
-    elements.settingsKeywordCount.value = settings.keywordCount || 20;
-    elements.settingsKeywordCountValue.textContent =
-      settings.keywordCount || 20;
-    elements.settingsIsPremium.checked = settings.isPremium || false;
+    // Update settings form with loaded values if elements exist
+    if (elements.settingsApiKey) {
+      elements.settingsApiKey.value = settings.apiKey || "";
+    }
 
-    console.log("Settings loaded:", settings);
+    if (elements.settingsSecretKey) {
+      elements.settingsSecretKey.value = settings.secretKey || "";
+    } else {
+      console.error("Settings secret key element not found");
+    }
+
+    if (elements.settingsTitleLength) {
+      elements.settingsTitleLength.value = settings.titleLength || 90;
+
+      if (elements.settingsTitleLengthValue) {
+        elements.settingsTitleLengthValue.textContent =
+          settings.titleLength || 90;
+      }
+    }
+
+    if (elements.settingsDescLength) {
+      elements.settingsDescLength.value = settings.descriptionLength || 120;
+
+      if (elements.settingsDescLengthValue) {
+        elements.settingsDescLengthValue.textContent =
+          settings.descriptionLength || 120;
+      }
+    }
+
+    if (elements.settingsKeywordCount) {
+      elements.settingsKeywordCount.value = settings.keywordCount || 20;
+
+      if (elements.settingsKeywordCountValue) {
+        elements.settingsKeywordCountValue.textContent =
+          settings.keywordCount || 20;
+      }
+    }
+
+    if (elements.settingsIsPremium) {
+      elements.settingsIsPremium.checked = settings.isPremium || false;
+    }
+
+    console.log("Settings loaded successfully");
     return settings;
   } catch (error) {
     console.error("Error loading settings:", error);
@@ -123,15 +163,27 @@ async function loadSettings() {
 
 // Save settings to electron store
 async function saveSettings() {
-  const settings = {
-    apiKey: elements.settingsApiKey.value,
-    titleLength: parseInt(elements.settingsTitleLength.value),
-    descriptionLength: parseInt(elements.settingsDescLength.value),
-    keywordCount: parseInt(elements.settingsKeywordCount.value),
-    isPremium: elements.settingsIsPremium.checked,
-  };
-
   try {
+    const settings = {
+      apiKey: elements.settingsApiKey ? elements.settingsApiKey.value : "",
+      secretKey: elements.settingsSecretKey
+        ? elements.settingsSecretKey.value
+        : "",
+      titleLength: elements.settingsTitleLength
+        ? parseInt(elements.settingsTitleLength.value)
+        : 90,
+      descriptionLength: elements.settingsDescLength
+        ? parseInt(elements.settingsDescLength.value)
+        : 120,
+      keywordCount: elements.settingsKeywordCount
+        ? parseInt(elements.settingsKeywordCount.value)
+        : 20,
+      isPremium: elements.settingsIsPremium
+        ? elements.settingsIsPremium.checked
+        : false,
+    };
+
+    console.log("Saving settings:", settings);
     const result = await window.electronAPI.settings.save(settings);
     console.log("Settings saved:", result);
     return result;
@@ -143,6 +195,33 @@ async function saveSettings() {
 
 // Set up all event listeners
 function setupEventListeners() {
+  // Secret key toggle
+  if (elements.toggleSecretKey) {
+    elements.toggleSecretKey.addEventListener("click", () => {
+      try {
+        if (elements.settingsSecretKey) {
+          const type =
+            elements.settingsSecretKey.type === "password"
+              ? "text"
+              : "password";
+          elements.settingsSecretKey.type = type;
+
+          const icon = elements.toggleSecretKey.querySelector("i");
+          if (icon) {
+            icon.className =
+              type === "password" ? "fas fa-eye" : "fas fa-eye-slash";
+          }
+        } else {
+          console.error("Secret key input element not found");
+        }
+      } catch (error) {
+        console.error("Error toggling secret key visibility:", error);
+      }
+    });
+  } else {
+    console.error("Toggle secret key button not found");
+  }
+
   // Settings range input value displays
   elements.settingsTitleLength.addEventListener("input", () => {
     elements.settingsTitleLengthValue.textContent =
@@ -218,11 +297,17 @@ function setupEventListeners() {
       return;
     }
 
-    // Check if API key is set in settings
+    // Check if API key and secret key are set in settings
     try {
       const settings = await window.electronAPI.settings.load();
       if (!settings || !settings.apiKey) {
         alert("Please set your API key in settings first");
+        elements.settingsDialog.classList.add("active");
+        return;
+      }
+
+      if (!settings.secretKey) {
+        alert("Please set your secret key in settings first");
         elements.settingsDialog.classList.add("active");
         return;
       }
@@ -392,16 +477,44 @@ function setupProcessingListeners() {
     elements.failedCount.textContent = "0";
     elements.outputDir.textContent = "Not available";
 
+    // Check if the error is related to API validation
+    const isApiValidationError = errorMessage.includes("API validation");
+
     // Show error in results panel
     elements.resultsList.innerHTML = `
       <div class="result-item error">
         <div class="result-item-header">
-          <span class="filename">Error</span>
+          <span class="filename">${
+            isApiValidationError ? "API Validation Error" : "Error"
+          }</span>
           <span class="status error">Failed</span>
         </div>
         <div class="result-message">${errorMessage}</div>
+        ${
+          isApiValidationError
+            ? `
+        <div class="result-action">
+          <button class="btn secondary open-settings-btn">
+            <i class="fas fa-cog"></i> Open Settings
+          </button>
+        </div>
+        `
+            : ""
+        }
       </div>
     `;
+
+    // Add click event for opening settings if this is an API validation error
+    if (isApiValidationError) {
+      const openSettingsBtn =
+        elements.resultsList.querySelector(".open-settings-btn");
+      if (openSettingsBtn) {
+        openSettingsBtn.addEventListener("click", () => {
+          elements.settingsDialog.classList.add("active");
+        });
+      }
+    }
+
     elements.noResults.classList.add("hidden");
 
     // Re-enable submit button

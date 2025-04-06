@@ -9,6 +9,7 @@ const settingsPath = path.join(
 
 const defaultSettings = {
   apiKey: "",
+  secretKey: "",
   titleLength: 90,
   descriptionLength: 120,
   keywordCount: 20,

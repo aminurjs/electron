@@ -1,8 +1,9 @@
-const { app, Menu } = require("electron");
+const { app, Menu, net } = require("electron");
 const path = require("path");
 const { autoUpdater } = require("electron-updater");
 const { createMainWindow } = require("./createMainWindow");
 const fs = require("fs");
+const { API_CONFIG } = require("./config/env");
 
 // Create the utils directory if it doesn't exist
 const utilsDir = path.join(__dirname, "utils");
@@ -50,6 +51,7 @@ try {
 
       const defaultSettings = {
         apiKey: "",
+        secretKey: "",
         titleLength: 90,
         descriptionLength: 120,
         keywordCount: 20,
@@ -113,36 +115,142 @@ try {
       logStartup("Using fallback processing handler");
       const { ipcMain } = require("electron");
 
-      ipcMain.handle("submit-config", async (event, config) => {
-        logStartup(`Handling submit-config request: ${JSON.stringify(config)}`);
-        // Minimal placeholder implementation
-        setTimeout(() => {
-          if (global.mainWindow && !global.mainWindow.isDestroyed()) {
-            global.mainWindow.webContents.send("processing-start", {
-              total: 1,
+      // Simple API validation function
+      async function validateApiKey(secretKey) {
+        return new Promise((resolve, reject) => {
+          if (!secretKey) {
+            reject(new Error("Secret key is not set"));
+            return;
+          }
+
+          const request = net.request({
+            method: "GET",
+            protocol: API_CONFIG.VALIDATION_PROTOCOL,
+            hostname: API_CONFIG.VALIDATION_HOST,
+            path: `${API_CONFIG.VALIDATION_PATH}/${secretKey}`,
+          });
+
+          let responseData = "";
+
+          request.on("response", (response) => {
+            response.on("data", (chunk) => {
+              responseData += chunk.toString();
             });
 
-            setTimeout(() => {
-              global.mainWindow.webContents.send("processing-progress", {
-                current: 1,
+            response.on("end", () => {
+              try {
+                const parsed = JSON.parse(responseData);
+                if (parsed.success && parsed.data) {
+                  resolve(parsed.data);
+                } else {
+                  reject(new Error("Invalid API key"));
+                }
+              } catch (err) {
+                reject(new Error(`Failed to parse response: ${err.message}`));
+              }
+            });
+          });
+
+          request.on("error", (error) => {
+            reject(new Error(`API validation failed: ${error.message}`));
+          });
+
+          request.end();
+        });
+      }
+
+      ipcMain.handle("submit-config", async (event, config) => {
+        logStartup(`Handling submit-config request: ${JSON.stringify(config)}`);
+
+        try {
+          // Load settings
+          const settingsPath = path.join(
+            app.getPath("userData"),
+            "settings.json"
+          );
+          let settings = {};
+
+          try {
+            if (fs.existsSync(settingsPath)) {
+              settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+            }
+          } catch (err) {
+            return {
+              success: false,
+              message: `Error loading settings: ${err.message}`,
+            };
+          }
+
+          // Validate API key
+          try {
+            if (!settings.secretKey) {
+              throw new Error("Secret key is not set");
+            }
+
+            const validation = await validateApiKey(settings.secretKey);
+
+            if (!validation.isValid || !validation.isActive) {
+              throw new Error(
+                !validation.isValid
+                  ? "Invalid API key"
+                  : "API key is not active"
+              );
+            }
+
+            logStartup(
+              `API key is valid and active. Username: ${validation.username}`
+            );
+          } catch (error) {
+            logStartup(`API key validation error: ${error.message}`);
+
+            if (global.mainWindow && !global.mainWindow.isDestroyed()) {
+              global.mainWindow.webContents.send(
+                "processing-error",
+                `API validation failed: ${error.message}`
+              );
+            }
+
+            return {
+              success: false,
+              message: `API validation failed: ${error.message}`,
+            };
+          }
+
+          // Proceed with processing
+          setTimeout(() => {
+            if (global.mainWindow && !global.mainWindow.isDestroyed()) {
+              global.mainWindow.webContents.send("processing-start", {
                 total: 1,
-                percent: 100,
               });
 
               setTimeout(() => {
-                global.mainWindow.webContents.send("processing-results", {
+                global.mainWindow.webContents.send("processing-progress", {
+                  current: 1,
                   total: 1,
-                  successful: [],
-                  failed: [],
-                  outputDirectory: config.path,
-                  allResults: [],
+                  percent: 100,
                 });
-              }, 500);
-            }, 1000);
-          }
-        }, 500);
 
-        return { success: true, message: "Processing submitted" };
+                setTimeout(() => {
+                  global.mainWindow.webContents.send("processing-results", {
+                    total: 1,
+                    successful: [],
+                    failed: [],
+                    outputDirectory: config.path,
+                    allResults: [],
+                  });
+                }, 500);
+              }, 1000);
+            }
+          }, 500);
+
+          return { success: true, message: "Processing submitted" };
+        } catch (error) {
+          logStartup(`Error handling submit-config: ${error.message}`);
+          return {
+            success: false,
+            message: `Error handling submit-config: ${error.message}`,
+          };
+        }
       });
     },
     registerOutputHandler: () => {

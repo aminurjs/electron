@@ -1,11 +1,11 @@
-const { ipcMain } = require("electron");
+const { ipcMain, net, app } = require("electron");
 const { processImages } = require("../process/processImages");
 const { loadSettings } = require("./settingsHandler");
 const fs = require("fs");
 const path = require("path");
+const { API_CONFIG } = require("../config/env");
 
 // Get the app data path for logging
-const { app } = require("electron");
 const logPath = path.join(app.getPath("userData"), "processing-log.txt");
 
 // Simple helper to log errors safely
@@ -20,6 +20,44 @@ function logError(message) {
   } catch (err) {
     console.error("Failed to write to log file:", err);
   }
+}
+
+async function validateApiKey(secretKey) {
+  return new Promise((resolve, reject) => {
+    const request = net.request({
+      method: "GET",
+      protocol: API_CONFIG.VALIDATION_PROTOCOL,
+      hostname: API_CONFIG.VALIDATION_HOST,
+      path: `${API_CONFIG.VALIDATION_PATH}/${secretKey}`,
+    });
+
+    let responseData = "";
+
+    request.on("response", (response) => {
+      response.on("data", (chunk) => {
+        responseData += chunk.toString();
+      });
+
+      response.on("end", () => {
+        try {
+          const parsed = JSON.parse(responseData);
+          if (parsed.success && parsed.data) {
+            resolve(parsed.data);
+          } else {
+            reject(new Error("Invalid API key"));
+          }
+        } catch (err) {
+          reject(new Error(`Failed to parse response: ${err.message}`));
+        }
+      });
+    });
+
+    request.on("error", (error) => {
+      reject(new Error(`API validation failed: ${error.message}`));
+    });
+
+    request.end();
+  });
 }
 
 const progressTracker = {
@@ -64,6 +102,30 @@ function registerProcessingHandler() {
   ipcMain.handle("submit-config", async (event, config) => {
     try {
       const settings = loadSettings();
+
+      // Validate API key before processing
+      try {
+        if (!settings.secretKey) {
+          throw new Error("Secret key is not set");
+        }
+
+        const validation = await validateApiKey(settings.secretKey);
+        console.log("API key validation:", validation);
+
+        if (!validation.isValid || !validation.isActive) {
+          throw new Error(
+            !validation.isValid ? "Invalid API key" : "API key is not active"
+          );
+        }
+
+        console.log(
+          "API key is valid and active. Username:",
+          validation.username
+        );
+      } catch (error) {
+        logError(`API key validation error: ${error.message}`);
+        throw new Error(`API validation failed: ${error.message}`);
+      }
 
       progressTracker.reset();
 
