@@ -106,7 +106,7 @@ function createMainWindow() {
     x: validWindowState.x,
     y: validWindowState.y,
     frame: true,
-    show: false, // Hide until ready
+    show: false,
     icon: path.join(__dirname, "assets", "icon.ico"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),

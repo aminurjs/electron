@@ -76,6 +76,17 @@ async function initApp() {
   // Load settings
   await loadSettings();
 
+  // Get and display app version
+  try {
+    const version = await window.electronAPI.app.getVersion();
+    const versionElement = document.getElementById("app-version");
+    if (versionElement) {
+      versionElement.textContent = version;
+    }
+  } catch (error) {
+    console.error("Error getting app version:", error);
+  }
+
   // Listen for app messages (like updates)
   window.electronAPI.app.onMessage((message) => {
     if (elements.statusMessage) {

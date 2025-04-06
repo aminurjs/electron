@@ -166,13 +166,20 @@ let mainWindow;
 global.mainWindow = null;
 
 // Configure auto updater defaults
-autoUpdater.autoDownload = false;
+autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.allowDowngrade = true;
 
 // Handle uncaught exceptions with proper logging
 process.on("uncaughtException", (err) => {
   logStartup(`Uncaught Exception: ${err.message}\nStack: ${err.stack}`);
   console.error("Uncaught Exception:", err);
+});
+
+// Add version IPC handler
+const { ipcMain } = require("electron");
+ipcMain.handle("get-app-version", () => {
+  return app.getVersion();
 });
 
 app.whenReady().then(() => {
@@ -260,21 +267,6 @@ app.whenReady().then(() => {
     );
   }
 
-  // Set the dock icon on macOS only
-  if (process.platform === "darwin") {
-    try {
-      const iconPath = path.join(__dirname, "assets", "icon.png");
-      if (fs.existsSync(iconPath)) {
-        app.dock.setIcon(iconPath);
-        logStartup("Dock icon set successfully");
-      } else {
-        logStartup(`Icon file not found at ${iconPath}`);
-      }
-    } catch (error) {
-      logStartup(`Failed to set dock icon: ${error.message}`);
-    }
-  }
-
   // Open DevTools only in development
   if (!app.isPackaged) {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -285,17 +277,14 @@ app.whenReady().then(() => {
 });
 
 // Auto-updater event listeners
-autoUpdater.on("update-available", () => {
+autoUpdater.on("update-available", (info) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(
       "message",
-      `Update available. Current version ${app.getVersion()}`
+      `Update available. Current version ${app.getVersion()}. Downloading...`
     );
   }
-  autoUpdater.downloadUpdate().catch((err) => {
-    console.error("Download update error:", err);
-    logStartup(`Download update error: ${err.message}`);
-  });
+  logStartup(`Update available: ${info.version}`);
 });
 
 autoUpdater.on("update-not-available", () => {
@@ -305,15 +294,27 @@ autoUpdater.on("update-not-available", () => {
       `No update available. Current version ${app.getVersion()}`
     );
   }
+  logStartup("No update available");
 });
 
-autoUpdater.on("update-downloaded", () => {
+autoUpdater.on("update-downloaded", (info) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(
       "message",
-      `Update downloaded. Current version ${app.getVersion()}`
+      `Update downloaded. Will install when app is closed. Current version ${app.getVersion()}`
     );
   }
+  logStartup(`Update downloaded: ${info.version}`);
+});
+
+autoUpdater.on("download-progress", (progressObj) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(
+      "message",
+      `Downloading update: ${Math.round(progressObj.percent)}%`
+    );
+  }
+  logStartup(`Download progress: ${Math.round(progressObj.percent)}%`);
 });
 
 autoUpdater.on("error", (info) => {
@@ -323,7 +324,25 @@ autoUpdater.on("error", (info) => {
   logStartup(`Auto-updater error: ${info?.toString()}`);
 });
 
+// Handle app quit to ensure update installation
+app.on("before-quit", (event) => {
+  if (autoUpdater.isUpdaterActive()) {
+    event.preventDefault();
+    logStartup("Update is being installed, waiting for completion...");
+  }
+});
+
 app.on("window-all-closed", () => {
   logStartup("All windows closed");
-  if (process.platform !== "darwin") app.quit();
+  if (process.platform !== "darwin") {
+    // If there's an update ready to install, wait for it
+    if (autoUpdater.isUpdaterActive()) {
+      logStartup("Waiting for update installation before quitting...");
+      setTimeout(() => {
+        app.quit();
+      }, 5000); // Give 5 seconds for the update to install
+    } else {
+      app.quit();
+    }
+  }
 });

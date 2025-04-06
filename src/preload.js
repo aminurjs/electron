@@ -75,6 +75,7 @@ const api = {
   // Application module
   app: {
     onMessage: (callback) => listenToIPC("message", callback),
+    getVersion: () => invokeIPC("get-app-version"),
   },
 
   // Cleanup helper
