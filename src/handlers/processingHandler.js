@@ -1,11 +1,25 @@
 const { ipcMain } = require("electron");
 const { processImages } = require("../process/processImages");
 const { loadSettings } = require("./settingsHandler");
+const fs = require("fs");
+const path = require("path");
 
-let mainWindow;
+// Get the app data path for logging
+const { app } = require("electron");
+const logPath = path.join(app.getPath("userData"), "processing-log.txt");
 
-function setMainWindow(win) {
-  mainWindow = win;
+// Simple helper to log errors safely
+function logError(message) {
+  console.error(message);
+  try {
+    fs.appendFileSync(
+      logPath,
+      `${new Date().toISOString()} - ${message}\n`,
+      "utf8"
+    );
+  } catch (err) {
+    console.error("Failed to write to log file:", err);
+  }
 }
 
 const progressTracker = {
@@ -17,15 +31,32 @@ const progressTracker = {
   },
   setTotal(total) {
     this.total = total;
-    mainWindow?.webContents.send("processing-start", { total });
+    try {
+      if (global.mainWindow && !global.mainWindow.isDestroyed()) {
+        global.mainWindow.webContents.send("processing-start", { total });
+        console.log("Sent processing-start event to renderer:", { total });
+      } else {
+        logError("Cannot send processing-start: mainWindow not available");
+      }
+    } catch (err) {
+      logError(`Error in setTotal: ${err.message}`);
+    }
   },
   increment() {
     this.processed++;
-    mainWindow?.webContents.send("processing-progress", {
-      current: this.processed,
-      total: this.total,
-      percent: Math.round((this.processed / this.total) * 100),
-    });
+    try {
+      if (global.mainWindow && !global.mainWindow.isDestroyed()) {
+        global.mainWindow.webContents.send("processing-progress", {
+          current: this.processed,
+          total: this.total,
+          percent: Math.round((this.processed / this.total) * 100),
+        });
+      } else {
+        logError("Cannot send processing-progress: mainWindow not available");
+      }
+    } catch (err) {
+      logError(`Error in increment: ${err.message}`);
+    }
   },
 };
 
@@ -56,11 +87,24 @@ function registerProcessingHandler() {
         results.outputDirectory = results.outputDir;
       }
 
-      mainWindow.webContents.send("processing-results", results);
+      if (global.mainWindow && !global.mainWindow.isDestroyed()) {
+        global.mainWindow.webContents.send("processing-results", results);
+        console.log("Sent processing-results event to renderer");
+      } else {
+        logError("Cannot send processing-results: mainWindow not available");
+      }
+
       return { success: true, message: "Processing completed successfully" };
     } catch (err) {
       console.error("Processing error:", err);
-      mainWindow?.webContents.send("processing-error", err.message);
+      logError(`Processing error: ${err.message}\n${err.stack}`);
+
+      if (global.mainWindow && !global.mainWindow.isDestroyed()) {
+        global.mainWindow.webContents.send("processing-error", err.message);
+      } else {
+        logError("Cannot send processing-error: mainWindow not available");
+      }
+
       return { success: false, message: err.message };
     } finally {
       global.progressEvents = null;
@@ -68,4 +112,4 @@ function registerProcessingHandler() {
   });
 }
 
-module.exports = { registerProcessingHandler, setMainWindow };
+module.exports = { registerProcessingHandler };

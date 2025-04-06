@@ -58,21 +58,40 @@ const elements = {
   helpDialog: document.getElementById("help-dialog"),
   closeHelp: document.getElementById("close-help"),
   closeHelpBtn: document.getElementById("close-help-btn"),
+
+  // Status message display
+  statusMessage: document.getElementById("status-message"),
 };
 
 // Initialize the app
 async function initApp() {
-  // Load settings
-  await loadSettings();
+  console.log("Initializing app");
 
   // Set up event listeners
   setupEventListeners();
+
+  // Set up processing listeners
+  setupProcessingListeners();
+
+  // Add test button for debugging
+  setupTestButton();
+
+  // Load settings
+  await loadSettings();
+
+  // Listen for app messages (like updates)
+  window.electronAPI.app.onMessage((message) => {
+    if (elements.statusMessage) {
+      elements.statusMessage.textContent = message;
+    }
+    console.log("App message:", message);
+  });
 }
 
 // Load settings from electron store
 async function loadSettings() {
   try {
-    const settings = await window.electronAPI.loadSettings();
+    const settings = await window.electronAPI.settings.load();
 
     // Update settings form with loaded values
     elements.settingsApiKey.value = settings.apiKey || "";
@@ -105,7 +124,7 @@ async function saveSettings() {
   };
 
   try {
-    const result = await window.electronAPI.saveSettings(settings);
+    const result = await window.electronAPI.settings.save(settings);
     console.log("Settings saved:", result);
     return result;
   } catch (error) {
@@ -167,13 +186,18 @@ function setupEventListeners() {
 
   // Handle directory selection
   elements.selectPathBtn.addEventListener("click", async () => {
-    const result = await window.electronAPI.selectPath();
-    if (result) {
-      selectedPath = result.path;
-      elements.selectedPath.textContent = result.path;
-      elements.imageCount.textContent = `${result.imageCount} images`;
-      elements.imageCount.style.display =
-        result.imageCount > 0 ? "inline-block" : "none";
+    try {
+      const result = await window.electronAPI.files.selectPath();
+      if (result) {
+        selectedPath = result.path;
+        elements.selectedPath.textContent = result.path;
+        elements.imageCount.textContent = `${result.imageCount} images`;
+        elements.imageCount.style.display =
+          result.imageCount > 0 ? "inline-block" : "none";
+      }
+    } catch (error) {
+      console.error("Error selecting path:", error);
+      alert("Failed to select directory. Please try again.");
     }
   });
 
@@ -187,30 +211,31 @@ function setupEventListeners() {
     }
 
     // Check if API key is set in settings
-    const settings = await window.electronAPI.loadSettings();
-    if (!settings || !settings.apiKey) {
-      alert("Please set your API key in settings first");
-      elements.settingsDialog.classList.add("active");
-      return;
-    }
-
-    // Set up event listeners for processing
-    setupProcessingListeners();
-
-    // Only need to pass the path now, settings are loaded from store
-    const config = {
-      path: selectedPath,
-    };
-
     try {
-      await window.electronAPI.submitConfig(config);
+      const settings = await window.electronAPI.settings.load();
+      if (!settings || !settings.apiKey) {
+        alert("Please set your API key in settings first");
+        elements.settingsDialog.classList.add("active");
+        return;
+      }
+
+      // Set up event listeners for processing
+      setupProcessingListeners();
+
+      // Only need to pass the path now, settings are loaded from store
+      const config = {
+        path: selectedPath,
+      };
+
+      await window.electronAPI.processing.submit(config);
     } catch (error) {
-      console.error("Error submitting config:", error);
+      console.error("Error during processing setup:", error);
+      alert("An error occurred while setting up processing. Please try again.");
     }
   });
 
   // Help dialog
-  document.querySelector("#help-btn").addEventListener("click", () => {
+  elements.helpBtn.addEventListener("click", () => {
     elements.helpDialog.classList.add("active");
   });
 
@@ -232,12 +257,19 @@ function setupEventListeners() {
 
 // Set up event listeners for processing events
 function setupProcessingListeners() {
-  // Clean up any existing listeners
-  window.electronAPI.removeAllListeners();
+  console.log("Setting up processing listeners");
 
-  // Processing start
-  window.electronAPI.onProcessingStart((event, data) => {
-    console.log("Processing started:", data);
+  // Clean up any existing listeners
+  window.electronAPI.cleanup.removeListeners();
+  console.log("Cleaned up existing listeners");
+
+  // Store removal functions for later cleanup if needed
+  const listenerCleanupFunctions = [];
+
+  // Processing start event
+  console.log("Setting up onStart listener");
+  const startRemover = window.electronAPI.processing.onStart((data) => {
+    console.log("PROCESSING START received:", data);
 
     // Hide initial state
     elements.initialState.classList.add("hidden");
@@ -259,10 +291,12 @@ function setupProcessingListeners() {
     elements.submitBtn.disabled = true;
     elements.submitBtn.textContent = "Processing...";
   });
+  listenerCleanupFunctions.push(startRemover);
 
   // Progress updates
-  window.electronAPI.onProcessingProgress((event, data) => {
-    console.log("Progress update:", data);
+  console.log("Setting up onProgress listener");
+  const progressRemover = window.electronAPI.processing.onProgress((data) => {
+    console.log("PROGRESS UPDATE received:", data);
 
     // Update progress bar
     elements.progressBar.style.width = `${data.percent}%`;
@@ -272,10 +306,12 @@ function setupProcessingListeners() {
       elements.progressStatus.textContent = "Finalizing...";
     }
   });
+  listenerCleanupFunctions.push(progressRemover);
 
   // Processing results
-  window.electronAPI.onProcessingResults((event, results) => {
-    console.log("Processing complete:", results);
+  console.log("Setting up onResults listener");
+  const resultsRemover = window.electronAPI.processing.onResults((results) => {
+    console.log("RESULTS received:", results);
 
     // Save output directory path
     outputDirectory = results.outputDirectory;
@@ -299,9 +335,11 @@ function setupProcessingListeners() {
       // Add click event to open the directory
       elements.outputDir.addEventListener("click", async () => {
         try {
-          const result = await window.electronAPI.openOutputDirectory(
+          console.log("Opening output directory:", outputDirectory);
+          const result = await window.electronAPI.files.openOutputDirectory(
             outputDirectory
           );
+          console.log("Open directory result:", result);
           if (!result.success) {
             console.error("Failed to open directory:", result.message);
             alert(`Could not open the directory: ${result.message}`);
@@ -323,11 +361,17 @@ function setupProcessingListeners() {
     // Re-enable submit button
     elements.submitBtn.disabled = false;
     elements.submitBtn.textContent = "Generate Metadata";
+
+    console.log("Processing complete, cleaning up listeners");
+    // Clean up listeners after processing is complete
+    cleanupListeners();
   });
+  listenerCleanupFunctions.push(resultsRemover);
 
   // Processing error
-  window.electronAPI.onProcessingError((event, errorMessage) => {
-    console.error("Processing error:", errorMessage);
+  console.log("Setting up onError listener");
+  const errorRemover = window.electronAPI.processing.onError((errorMessage) => {
+    console.error("PROCESSING ERROR received:", errorMessage);
 
     // Hide progress container and initial state
     elements.progressContainer.classList.add("hidden");
@@ -355,6 +399,29 @@ function setupProcessingListeners() {
     // Re-enable submit button
     elements.submitBtn.disabled = false;
     elements.submitBtn.textContent = "Generate Metadata";
+
+    console.log("Error occurred, cleaning up listeners");
+    // Clean up listeners after processing error
+    cleanupListeners();
+  });
+  listenerCleanupFunctions.push(errorRemover);
+
+  // Helper function to clean up all listeners
+  function cleanupListeners() {
+    console.log("Cleaning up all listeners");
+    listenerCleanupFunctions.forEach((removeFunction) => {
+      if (typeof removeFunction === "function") {
+        removeFunction();
+      }
+    });
+    console.log("All listeners cleaned up");
+  }
+
+  // Also add a general app message listener
+  console.log("Setting up general message listener");
+  window.electronAPI.app.onMessage((message) => {
+    console.log("APP MESSAGE received:", message);
+    // You can display this message in a status area if needed
   });
 }
 
@@ -393,6 +460,39 @@ function displayResults(results) {
 
     elements.resultsList.appendChild(resultItem);
   });
+}
+
+// Add the test button setup function
+function setupTestButton() {
+  // Create a test button for debugging purposes
+  const testButton = document.createElement("button");
+  testButton.id = "test-button";
+  testButton.className = "button is-warning is-small";
+  testButton.textContent = "Test IPC";
+  testButton.style.position = "fixed";
+  testButton.style.bottom = "10px";
+  testButton.style.right = "10px";
+  testButton.style.zIndex = "1000";
+
+  // Add event listener
+  testButton.addEventListener("click", async () => {
+    console.log("Triggering test IPC call");
+    try {
+      // Use direct IPC invocation through preload wrapper
+      const testPath = selectedPath || "/tmp"; // Use a fallback path
+      const result = await window.electronAPI.invoke("test-processing", {
+        path: testPath,
+        test: true,
+      });
+      console.log("Test IPC result:", result);
+    } catch (error) {
+      console.error("Test IPC error:", error);
+    }
+  });
+
+  // Add to document
+  document.body.appendChild(testButton);
+  console.log("Test button added to UI");
 }
 
 // Initialize the app on load

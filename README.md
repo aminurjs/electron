@@ -1,47 +1,96 @@
-# Electron Image Processing App
+# GenMeta - Image Metadata Generator
 
-This Electron-based desktop application provides an interface for batch processing images.
+An Electron-based desktop application that generates metadata for images using AI.
 
 ## Features
 
-- **Image Processing**: Batch process images with customizable settings
-- **Settings Management**: Configure API keys and processing parameters
-- **Window State Persistence**: Application remembers window size, position, and state between sessions
-- **Progress Tracking**: Real-time progress updates during image processing
-- **Custom Window Controls**: Custom window frame with minimize, maximize, and close controls
+- Image processing with AI to generate titles, descriptions, and keywords
+- Customizable metadata length settings
+- Progress tracking for batch processing
+- Professional installer for Windows, macOS, and Linux
+- Persistent window state (remembers size and position)
+
+## Installation
+
+### Windows
+
+1. Download the latest installer from the [Releases](https://github.com/aminurjs/genmeta-app/releases) page
+2. Run the installer (GenMeta-Setup-x.x.x.exe)
+3. Follow the installation wizard
+
+### macOS
+
+1. Download the latest DMG from the [Releases](https://github.com/aminurjs/genmeta-app/releases) page
+2. Open the DMG file
+3. Drag the application to your Applications folder
+
+### Linux
+
+1. Download the latest AppImage from the [Releases](https://github.com/aminurjs/genmeta-app/releases) page
+2. Make the AppImage executable: `chmod +x GenMeta-x.x.x.AppImage`
+3. Run the application: `./GenMeta-x.x.x.AppImage`
 
 ## Development
+
+### Prerequisites
+
+- Node.js 16+ and npm
 
 ### Setup
 
 1. Clone the repository
-2. Install dependencies: `npm install`
-3. Run the application: `npm start`
 
-### Building
+   ```bash
+   git clone https://github.com/aminurjs/genmeta-app.git
+   cd genmeta-app
+   ```
 
-To build the application for production:
+2. Install dependencies
 
+   ```bash
+   npm install
+   ```
+
+3. Start the app
+   ```bash
+   npm start
+   ```
+
+### Building Installers
+
+#### Windows
+
+```bash
+# On Windows
+npm run build:win
+# Or use the batch file
+build.bat
 ```
-npm run build
+
+#### macOS
+
+```bash
+npm run build:mac
 ```
 
-### Key Components
+#### Linux
 
-- **Main Process** (`src/main.js`): Handles Electron application lifecycle, window management, and IPC
-- **Renderer Process** (`src/index.html`, `src/resource/js/script.js`): User interface and interaction
-- **Preload Script** (`src/preload.js`): Securely exposes main process functionality to the renderer
-- **Image Processing** (`src/process/processImages.js`): Core business logic for image processing
+```bash
+npm run build:linux
+```
 
-## Window State Persistence
+The installers will be placed in the `dist` folder.
 
-The application includes a feature to remember the user's window size, position, and maximized state between sessions. This is implemented through:
+## Project Structure
 
-1. **Window State Storage**: Window dimensions, position, and maximized state are saved to `window-state.json` in the app's user data directory
-2. **Automatic Saving**: Window state is automatically saved when the window is resized, moved, or closed
-3. **State Restoration**: On startup, the app restores the previous window state
-4. **Display Validation**: The app validates that the saved position is still valid (visible on a connected display)
-5. **Minimum Size Enforcement**: Prevents windows from being resized too small
+- `src/main.js` - Electron main process
+- `src/preload.js` - Secure bridge between renderer and main process
+- `src/index.html` - Main application UI
+- `src/createMainWindow.js` - Window management
+- `src/handlers/` - IPC handlers for various features
+- `src/process/` - Image processing logic
+- `src/assets/` - Application assets like icons
+- `src/resource/` - UI resources (CSS, JS, images)
 
 ## License
 
