@@ -1,6 +1,6 @@
 {
   "name": "genmeta-app",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Metadata generator",
   "main": "src/main.js",
   "scripts": {

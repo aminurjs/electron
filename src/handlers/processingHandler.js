@@ -22,8 +22,48 @@ function logError(message) {
   }
 }
 
+// Cache for API key validation results
+let validationCache = {
+  result: null,
+  timestamp: null,
+  secretKey: null,
+};
+
+// Check if the cache is valid (less than 24 hours old and same key)
+function isCacheValid(secretKey) {
+  if (
+    !validationCache.result ||
+    !validationCache.timestamp ||
+    validationCache.secretKey !== secretKey
+  ) {
+    return false;
+  }
+
+  const now = new Date();
+  const cacheTime = new Date(validationCache.timestamp);
+
+  // Check if we're still in the same day
+  // If the date has changed (passed midnight), the cache is invalid
+  return now.toDateString() === cacheTime.toDateString();
+}
+
 async function validateApiKey(secretKey) {
+  // Return cached result if valid
+  if (isCacheValid(secretKey)) {
+    console.log(
+      "Using cached API key validation from",
+      new Date(validationCache.timestamp).toLocaleString(),
+      "- will reset at midnight"
+    );
+    return validationCache.result;
+  }
+
   return new Promise((resolve, reject) => {
+    if (!secretKey) {
+      reject(new Error("Secret key is not set"));
+      return;
+    }
+
     const request = net.request({
       method: "GET",
       protocol: API_CONFIG.VALIDATION_PROTOCOL,
@@ -42,6 +82,13 @@ async function validateApiKey(secretKey) {
         try {
           const parsed = JSON.parse(responseData);
           if (parsed.success && parsed.data) {
+            // Cache the validation result
+            validationCache = {
+              result: parsed.data,
+              timestamp: new Date().toISOString(),
+              secretKey: secretKey,
+            };
+            console.log("Cached new API key validation");
             resolve(parsed.data);
           } else {
             reject(new Error("Invalid API key"));
@@ -174,4 +221,4 @@ function registerProcessingHandler() {
   });
 }
 
-module.exports = { registerProcessingHandler };
+module.exports = { registerProcessingHandler, validateApiKey };

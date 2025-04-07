@@ -1,9 +1,8 @@
-const { app, Menu, net } = require("electron");
+const { app, Menu } = require("electron");
 const path = require("path");
 const { autoUpdater } = require("electron-updater");
 const { createMainWindow } = require("./createMainWindow");
 const fs = require("fs");
-const { API_CONFIG } = require("./config/env");
 
 // Create the utils directory if it doesn't exist
 const utilsDir = path.join(__dirname, "utils");
@@ -115,50 +114,6 @@ try {
       logStartup("Using fallback processing handler");
       const { ipcMain } = require("electron");
 
-      // Simple API validation function
-      async function validateApiKey(secretKey) {
-        return new Promise((resolve, reject) => {
-          if (!secretKey) {
-            reject(new Error("Secret key is not set"));
-            return;
-          }
-
-          const request = net.request({
-            method: "GET",
-            protocol: API_CONFIG.VALIDATION_PROTOCOL,
-            hostname: API_CONFIG.VALIDATION_HOST,
-            path: `${API_CONFIG.VALIDATION_PATH}/${secretKey}`,
-          });
-
-          let responseData = "";
-
-          request.on("response", (response) => {
-            response.on("data", (chunk) => {
-              responseData += chunk.toString();
-            });
-
-            response.on("end", () => {
-              try {
-                const parsed = JSON.parse(responseData);
-                if (parsed.success && parsed.data) {
-                  resolve(parsed.data);
-                } else {
-                  reject(new Error("Invalid API key"));
-                }
-              } catch (err) {
-                reject(new Error(`Failed to parse response: ${err.message}`));
-              }
-            });
-          });
-
-          request.on("error", (error) => {
-            reject(new Error(`API validation failed: ${error.message}`));
-          });
-
-          request.end();
-        });
-      }
-
       ipcMain.handle("submit-config", async (event, config) => {
         logStartup(`Handling submit-config request: ${JSON.stringify(config)}`);
 
@@ -181,24 +136,22 @@ try {
             };
           }
 
-          // Validate API key
+          // In fallback mode, we'll just check if the key exists but not actually validate it
           try {
             if (!settings.secretKey) {
               throw new Error("Secret key is not set");
             }
 
-            const validation = await validateApiKey(settings.secretKey);
-
-            if (!validation.isValid || !validation.isActive) {
-              throw new Error(
-                !validation.isValid
-                  ? "Invalid API key"
-                  : "API key is not active"
-              );
-            }
+            // Skip actual API validation in fallback mode
+            logStartup("Fallback mode: Skipping actual API validation");
+            const mockValidation = {
+              isValid: true,
+              isActive: true,
+              username: "fallback_user",
+            };
 
             logStartup(
-              `API key is valid and active. Username: ${validation.username}`
+              `Using mock API validation in fallback mode. Username: ${mockValidation.username}`
             );
           } catch (error) {
             logStartup(`API key validation error: ${error.message}`);
