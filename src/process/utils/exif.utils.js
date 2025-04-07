@@ -26,12 +26,6 @@ function prepareMetadata(metadata, format) {
         "XMP:Subject": metadata.keywords,
         "XMP-dc:Subject": metadata.keywords,
         Keywords: metadata.keywords,
-        "PNG:Keywords": metadata.keywords
-          ? metadata.keywords.map((k) => k.trim()).join(";")
-          : undefined,
-        "PNG-iTXt:Keywords": metadata.keywords
-          ? metadata.keywords.map((k) => k.trim()).join(";")
-          : undefined,
       };
 
     case ".webp":

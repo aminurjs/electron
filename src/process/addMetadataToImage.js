@@ -1,8 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { prepareMetadata } = require("./utils/exif.utils");
-const exiftoolBin = require("dist-exiftool");
-const { ExiftoolProcess } = require("node-exiftool");
+const { exiftool } = require("exiftool-vendored");
 const { getMimeType } = require("./utils/getMimeType");
 const { ensureOutputDirectory } = require("./utils/ensureOutputDir");
 
@@ -40,26 +39,32 @@ async function addMetadataToImage(
   // Copy the original file to the output path
   await fs.promises.copyFile(imagePath, outputPath);
 
-  const ep = new ExiftoolProcess(exiftoolBin);
   try {
-    await ep.open();
-    const metadataToWrite = prepareMetadata(metadata, ext);
+    // Prepare metadata based on file type
+    let metadataToWrite = prepareMetadata(metadata, ext);
 
-    // Write main metadata
-    await ep.writeMetadata(outputPath, metadataToWrite, ["overwrite_original"]);
-
-    // Special handling for PNG keywords
+    // For PNG files, include keywords directly in the main metadata object
+    // instead of writing them separately
     if (ext === ".png" && metadata.keywords?.length) {
-      await ep.writeMetadata(
-        outputPath,
-        {
-          Keywords: metadata.keywords,
-          "XMP:Subject": metadata.keywords,
-          "XMP-dc:Subject": metadata.keywords,
-          "PNG:Keywords": metadata.keywords.join(";"),
-        },
-        ["overwrite_original"]
-      );
+      // These are the fields that are known to work for PNG keywords
+      metadataToWrite = {
+        ...metadataToWrite,
+        Keywords: metadata.keywords,
+        "XMP:Subject": metadata.keywords,
+        "XMP-dc:Subject": metadata.keywords,
+        // Remove problematic fields
+        // "PNG:Keywords": undefined,
+        // "PNG-iTXt:Keywords": undefined
+      };
+    }
+
+    // Write metadata with -overwrite_original flag to prevent backup files
+    await exiftool.write(outputPath, metadataToWrite, ["-overwrite_original"]);
+
+    // Clean up any potential _original files that might have been created
+    const originalFilePath = `${outputPath}_original`;
+    if (fs.existsSync(originalFilePath)) {
+      await fs.promises.unlink(originalFilePath);
     }
 
     return {
@@ -78,8 +83,7 @@ async function addMetadataToImage(
       message: `Failed to add metadata: ${error.message}`,
       outputPath: null,
     };
-  } finally {
-    await ep.close();
   }
 }
+
 module.exports = { addMetadataToImage };
