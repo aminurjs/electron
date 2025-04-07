@@ -8,7 +8,7 @@
     "dev": "nodemon --exec electron .",
     "clean": "rimraf dist",
     "build": "npm run clean && electron-builder",
-    "build:win": "electron-builder --win --x64 --config electron-builder.json"
+    "build:win": "electron-builder --win --x64"
   },
   "build": {
     "appId": "com.genmeta.app",
