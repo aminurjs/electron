@@ -107,7 +107,7 @@ function createMainWindow() {
     y: validWindowState.y,
     frame: true,
     show: false,
-    icon: path.join(__dirname, "assets", "icon.ico"),
+    icon: path.resolve(__dirname, "assets", "icon.ico"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,

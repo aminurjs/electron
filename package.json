@@ -1,6 +1,6 @@
 {
   "name": "genmeta-app",
-  "version": "2.0.0",
+  "version": "2.1.1",
   "description": "Metadata generator",
   "main": "src/main.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "dev": "nodemon --exec electron .",
     "clean": "rimraf dist",
     "build": "npm run clean && electron-builder",
-    "build:win": "electron-builder --win --x64"
+    "build:win": "electron-builder --win --x64 --config electron-builder.json"
   },
   "build": {
     "appId": "com.genmeta.app",
@@ -73,6 +73,7 @@
     "eslint": "^9.23.0",
     "globals": "^16.0.0",
     "nodemon": "^3.1.9",
+    "png-to-ico": "^2.1.8",
     "rimraf": "^6.0.1"
   }
 }

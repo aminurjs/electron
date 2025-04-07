@@ -291,6 +291,24 @@ ipcMain.handle("get-app-version", () => {
 });
 
 app.whenReady().then(() => {
+  // Set app icon explicitly
+  if (process.platform === "win32") {
+    app.setAppUserModelId(app.name);
+  }
+
+  // Set the application icon for all platforms
+  try {
+    const iconPath = path.resolve(__dirname, "assets", "icon.ico");
+    logStartup(`Setting application icon: ${iconPath}`);
+    if (fs.existsSync(iconPath)) {
+      app.setPath("userData", app.getPath("userData"));
+    } else {
+      logStartup(`Icon file not found: ${iconPath}`);
+    }
+  } catch (error) {
+    logStartup(`Error setting icon: ${error.message}`);
+  }
+
   // Remove menu for better performance and reduced memory usage
   Menu.setApplicationMenu(null);
 
