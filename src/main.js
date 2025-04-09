@@ -1,6 +1,5 @@
 const { app, Menu, BrowserWindow } = require("electron");
 const path = require("path");
-const { autoUpdater } = require("electron-updater");
 const { createMainWindow } = require("./createMainWindow");
 const fs = require("fs");
 const { net } = require("electron");
@@ -227,11 +226,6 @@ try {
 let mainWindow;
 global.mainWindow = null;
 
-// Configure auto updater defaults
-autoUpdater.autoDownload = true;
-autoUpdater.autoInstallOnAppQuit = true;
-autoUpdater.allowDowngrade = true;
-
 // Handle uncaught exceptions with proper logging
 process.on("uncaughtException", (err) => {
   logStartup(`Uncaught Exception: ${err.message}\nStack: ${err.stack}`);
@@ -360,22 +354,6 @@ app.whenReady().then(() => {
         logStartup("Sent test message to renderer");
       }
     }, 2000);
-
-    // Check for updates after app is fully loaded
-    setTimeout(() => {
-      try {
-        autoUpdater.checkForUpdates();
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send(
-            "message",
-            `Checking for updates. Current version ${app.getVersion()}`
-          );
-        }
-        logStartup("Checking for updates");
-      } catch (error) {
-        logStartup(`Failed to check for updates: ${error.message}`);
-      }
-    }, 5000);
   } catch (error) {
     logStartup(
       `Failed to create main window: ${error.message}\nStack: ${error.stack}`
@@ -391,73 +369,10 @@ app.whenReady().then(() => {
   }
 });
 
-// Auto-updater event listeners
-autoUpdater.on("update-available", (info) => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send(
-      "message",
-      `Update available. Current version ${app.getVersion()}. Downloading...`
-    );
-  }
-  logStartup(`Update available: ${info.version}`);
-});
-
-autoUpdater.on("update-not-available", () => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send(
-      "message",
-      `No update available. Current version ${app.getVersion()}`
-    );
-  }
-  logStartup("No update available");
-});
-
-autoUpdater.on("update-downloaded", (info) => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send(
-      "message",
-      `Update downloaded. Will install when app is closed. Current version ${app.getVersion()}`
-    );
-  }
-  logStartup(`Update downloaded: ${info.version}`);
-});
-
-autoUpdater.on("download-progress", (progressObj) => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send(
-      "message",
-      `Downloading update: ${Math.round(progressObj.percent)}%`
-    );
-  }
-  logStartup(`Download progress: ${Math.round(progressObj.percent)}%`);
-});
-
-autoUpdater.on("error", (info) => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send("message", info?.toString() || "Update error");
-  }
-  logStartup(`Auto-updater error: ${info?.toString()}`);
-});
-
-// Handle app quit to ensure update installation
-app.on("before-quit", (event) => {
-  if (autoUpdater.isUpdaterActive()) {
-    event.preventDefault();
-    logStartup("Update is being installed, waiting for completion...");
-  }
-});
-
+// Remove the autoUpdater call when user quits
 app.on("window-all-closed", () => {
   logStartup("All windows closed");
-  // If there's an update ready to install, wait for it
-  if (autoUpdater.isUpdaterActive()) {
-    logStartup("Waiting for update installation before quitting...");
-    setTimeout(() => {
-      app.quit();
-    }, 5000); // Give 5 seconds for the update to install
-  } else {
-    app.quit();
-  }
+  app.quit();
 });
 
 // Function to check API status

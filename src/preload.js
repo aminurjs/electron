@@ -29,6 +29,65 @@ const listenToIPC = (channel, callback) => {
   // Create a wrapped callback that handles errors
   const wrappedCallback = (event, ...args) => {
     console.log(`Received event on channel ${channel}:`, args);
+
+    // Special handling for update-status channel to prevent data leakage
+    if (channel === "update-status" && args.length > 0) {
+      // Make sure the data is properly structured
+      const data = args[0];
+
+      // Create a clean data object with only essential properties
+      const cleanData = {
+        status:
+          data && typeof data.status === "string" ? data.status : "unknown",
+        currentVersion:
+          data && typeof data.currentVersion === "string"
+            ? data.currentVersion
+            : "",
+      };
+
+      // Add specific properties based on status
+      if (
+        data &&
+        data.status === "available" &&
+        typeof data.version === "string"
+      ) {
+        cleanData.version = data.version;
+        cleanData.releaseDate = data.releaseDate;
+      }
+
+      if (
+        data &&
+        data.status === "downloading" &&
+        typeof data.percent === "number"
+      ) {
+        cleanData.percent = Math.round(
+          Math.max(0, Math.min(100, data.percent))
+        );
+      }
+
+      if (
+        data &&
+        data.status === "downloaded" &&
+        typeof data.version === "string"
+      ) {
+        cleanData.version = data.version;
+      }
+
+      if (data && data.status === "error") {
+        cleanData.error =
+          typeof data.error === "string" ? data.error : "Unknown error";
+      }
+
+      // Call the callback with clean data
+      try {
+        callback(cleanData);
+      } catch (error) {
+        console.error(`Error in ${channel} listener:`, error);
+      }
+      return;
+    }
+
+    // For all other channels, proceed normally
     try {
       callback(...args);
     } catch (error) {
