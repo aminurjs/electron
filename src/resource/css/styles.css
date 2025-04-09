@@ -1015,11 +1015,15 @@ input[type="range"]::-webkit-slider-thumb {
   border-radius: 4px;
   font-size: 13px;
   font-family: inherit;
-  resize: vertical;
+  resize: none;
+  overflow-y: hidden;
   transition: border-color 0.2s, box-shadow 0.2s;
   background-color: #333333;
   color: var(--text-color);
   line-height: 1.5;
+  min-height: auto;
+  height: auto;
+  padding-bottom: calc(var(--spacing-unit) * 1.25);
 }
 
 .metadata-title:focus,
@@ -1032,15 +1036,14 @@ input[type="range"]::-webkit-slider-thumb {
 
 .metadata-title {
   font-weight: 600;
-  min-height: 70px;
 }
 
 .metadata-description {
-  min-height: 100px;
+  /* Remove the min-height */
 }
 
 .metadata-keywords {
-  min-height: 80px;
+  /* Remove the min-height */
 }
 
 .metadata-modified {

@@ -448,6 +448,7 @@ function setupProcessingListeners() {
   const saveAllBtn = document.getElementById("save-all-btn");
   if (saveAllBtn) {
     saveAllBtn.classList.add("hidden");
+    saveAllBtn.disabled = true;
   }
 
   // Processing start event
@@ -483,6 +484,12 @@ function setupProcessingListeners() {
     elements.totalCount.textContent = data.total;
     elements.successCount.textContent = "0";
     elements.failedCount.textContent = "0";
+
+    // Ensure Save All button is disabled initially
+    if (saveAllBtn) {
+      saveAllBtn.classList.add("hidden");
+      saveAllBtn.disabled = true;
+    }
   });
   listenerCleanupFunctions.push(startRemover);
 
@@ -696,6 +703,10 @@ function appendResultItem(result) {
       }
     }
 
+    // Title and description for better immediate sizing
+    const title = result.metadata?.title || "";
+    const description = result.metadata?.description || "";
+
     // Success case with improved professional layout
     resultItem.innerHTML = `
       <div class="result-item-header">
@@ -717,9 +728,7 @@ function appendResultItem(result) {
               </label>
               <textarea class="metadata-title" data-filename="${
                 result.filename
-              }" data-field="title" data-original="${
-      result.metadata?.title || ""
-    }">${result.metadata?.title || ""}</textarea>
+              }" data-field="title" data-original="${title}">${title}</textarea>
             </div>
           </div>
         </div>
@@ -731,9 +740,7 @@ function appendResultItem(result) {
           </label>
           <textarea class="metadata-description" data-filename="${
             result.filename
-          }" data-field="description" data-original="${
-      result.metadata?.description || ""
-    }">${result.metadata?.description || ""}</textarea>
+          }" data-field="description" data-original="${description}">${description}</textarea>
         </div>
         
         <div class="metadata-field">
@@ -802,8 +809,10 @@ function appendResultItem(result) {
           updateSaveAllButton();
         });
 
-        // Initial sizing and count display
-        textarea.dispatchEvent(new Event("input"));
+        // Just update the size and count display without triggering input logic
+        textarea.style.height = "auto";
+        textarea.style.height = textarea.scrollHeight + "px";
+        updateCountDisplay(textarea);
       });
     }, 0);
   }
@@ -856,8 +865,8 @@ async function saveAllMetadata() {
     // Group by filepath for efficient saving
     const filePathMap = new Map();
 
-    // First, collect all the fields for each file, including unmodified ones
-    document.querySelectorAll("textarea[data-filepath]").forEach((element) => {
+    // Only collect data for modified fields
+    textareas.forEach((element) => {
       const filename = element.getAttribute("data-filename");
       const field = element.getAttribute("data-field");
       const filePath = element.getAttribute("data-filepath");
@@ -871,27 +880,29 @@ async function saveAllMetadata() {
             description: "",
             keywords: "",
           },
-          modified: false,
+          modified: true,
         });
       }
 
-      // Store the current value for each field
+      // Store the current value for the field
       const fileData = filePathMap.get(filePath);
       fileData.metadata[field] = element.value.trim();
     });
 
-    // Now mark which files have modified fields
-    textareas.forEach((textarea) => {
-      const filePath = textarea.getAttribute("data-filepath");
-      if (filePathMap.has(filePath)) {
-        filePathMap.get(filePath).modified = true;
-      }
+    // For files with modifications, get the remaining unmodified field values
+    filePathMap.forEach((fileData, filePath) => {
+      document
+        .querySelectorAll(
+          `textarea[data-filepath="${filePath}"]:not(.metadata-modified)`
+        )
+        .forEach((element) => {
+          const field = element.getAttribute("data-field");
+          fileData.metadata[field] = element.value.trim();
+        });
     });
 
-    // Filter to only include files with modifications
-    const saveRequests = Array.from(filePathMap.values()).filter(
-      (file) => file.modified
-    );
+    // Since we're only adding modified files to the map, we don't need additional filtering
+    const saveRequests = Array.from(filePathMap.values());
 
     // Process each file save request
     let successCount = 0;
@@ -986,6 +997,10 @@ function updateCountDisplay(textarea) {
 
   const field = textarea.getAttribute("data-field");
   let text = textarea.value.trim();
+
+  // Always ensure textarea height is adjusted to content
+  textarea.style.height = "auto";
+  textarea.style.height = textarea.scrollHeight + "px";
 
   if (field === "keywords") {
     // Format keywords with spaces between commas, but don't interfere with Backspace
