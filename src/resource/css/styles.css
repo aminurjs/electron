@@ -1038,14 +1038,6 @@ input[type="range"]::-webkit-slider-thumb {
   font-weight: 600;
 }
 
-.metadata-description {
-  /* Remove the min-height */
-}
-
-.metadata-keywords {
-  /* Remove the min-height */
-}
-
 .metadata-modified {
   position: relative;
 }

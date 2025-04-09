@@ -79,10 +79,6 @@ async function initApp() {
   console.log("Initializing app");
 
   // Debug: check if all settings elements are found correctly
-  console.log("Settings API Key Element:", elements.settingsApiKey);
-  console.log("Settings Secret Key Element:", elements.settingsSecretKey);
-  console.log("Toggle Secret Key Button:", elements.toggleSecretKey);
-
   // Get the save all button from the navbar
   const navbarSaveAllBtn = document.getElementById("save-all-btn");
 
@@ -111,13 +107,10 @@ async function initApp() {
     if (elements.statusMessage) {
       elements.statusMessage.textContent = message;
     }
-    console.log("App message:", message);
   });
 
   // Listen for API status updates
   window.electronAPI.app.onApiStatusUpdate((status) => {
-    console.log("API status update received:", status);
-
     // Update status display
     if (elements.apiStatus) {
       if (status.status === "error") {
@@ -186,7 +179,6 @@ async function initApp() {
 async function loadSettings() {
   try {
     const settings = await window.electronAPI.settings.load();
-    console.log("Raw settings loaded:", settings);
 
     // Update settings form with loaded values if elements exist
     if (elements.settingsApiKey) {
@@ -230,7 +222,6 @@ async function loadSettings() {
       elements.settingsIsPremium.checked = settings.isPremium || false;
     }
 
-    console.log("Settings loaded successfully");
     return settings;
   } catch (error) {
     console.error("Error loading settings:", error);
@@ -260,9 +251,7 @@ async function saveSettings() {
         : false,
     };
 
-    console.log("Saving settings:", settings);
     const result = await window.electronAPI.settings.save(settings);
-    console.log("Settings saved:", result);
     return result;
   } catch (error) {
     console.error("Error saving settings:", error);
@@ -435,11 +424,8 @@ function setupEventListeners() {
 
 // Set up event listeners for processing events
 function setupProcessingListeners() {
-  console.log("Setting up processing listeners");
-
   // Clean up any existing listeners
   window.electronAPI.cleanup.removeListeners();
-  console.log("Cleaned up existing listeners");
 
   // Store removal functions for later cleanup if needed
   const listenerCleanupFunctions = [];
@@ -448,14 +434,10 @@ function setupProcessingListeners() {
   const saveAllBtn = document.getElementById("save-all-btn");
   if (saveAllBtn) {
     saveAllBtn.classList.add("hidden");
-    saveAllBtn.disabled = true;
   }
 
   // Processing start event
-  console.log("Setting up onStart listener");
   const startRemover = window.electronAPI.processing.onStart((data) => {
-    console.log("PROCESSING START received:", data);
-
     // Hide initial state
     elements.initialState.classList.add("hidden");
 
@@ -486,6 +468,7 @@ function setupProcessingListeners() {
     elements.failedCount.textContent = "0";
 
     // Ensure Save All button is disabled initially
+    const saveAllBtn = document.getElementById("save-all-btn");
     if (saveAllBtn) {
       saveAllBtn.classList.add("hidden");
       saveAllBtn.disabled = true;
@@ -494,10 +477,7 @@ function setupProcessingListeners() {
   listenerCleanupFunctions.push(startRemover);
 
   // Progress updates
-  console.log("Setting up onProgress listener");
   const progressRemover = window.electronAPI.processing.onProgress((data) => {
-    console.log("PROGRESS UPDATE received:", data);
-
     // Update progress bar
     elements.progressBar.style.width = `${data.percent}%`;
     elements.progressCount.textContent = `${data.current}/${data.total}`;
@@ -509,11 +489,8 @@ function setupProcessingListeners() {
   listenerCleanupFunctions.push(progressRemover);
 
   // Real-time result item updates
-  console.log("Setting up onResultItem listener");
   const resultItemRemover = window.electronAPI.processing.onResultItem(
     (result) => {
-      console.log("INDIVIDUAL RESULT received:", result);
-
       // Add this individual result to the list
       appendResultItem(result);
 
@@ -531,10 +508,7 @@ function setupProcessingListeners() {
   listenerCleanupFunctions.push(resultItemRemover);
 
   // Processing results (final summary)
-  console.log("Setting up onResults listener");
   const resultsRemover = window.electronAPI.processing.onResults((results) => {
-    console.log("FINAL RESULTS received:", results);
-
     // Save output directory path
     outputDirectory = results.outputDirectory;
 
@@ -551,11 +525,9 @@ function setupProcessingListeners() {
       // Add click event to open the directory
       elements.outputDir.addEventListener("click", async () => {
         try {
-          console.log("Opening output directory:", outputDirectory);
           const result = await window.electronAPI.files.openOutputDirectory(
             outputDirectory
           );
-          console.log("Open directory result:", result);
           if (!result.success) {
             console.error("Failed to open directory:", result.message);
             alert(`Could not open the directory: ${result.message}`);
@@ -575,17 +547,13 @@ function setupProcessingListeners() {
     elements.submitBtn.disabled = false;
     elements.submitBtn.textContent = "Generate Metadata";
 
-    console.log("Processing complete, cleaning up listeners");
     // Clean up listeners after processing is complete
     cleanupListeners();
   });
   listenerCleanupFunctions.push(resultsRemover);
 
   // Processing error
-  console.log("Setting up onError listener");
   const errorRemover = window.electronAPI.processing.onError((errorMessage) => {
-    console.error("PROCESSING ERROR received:", errorMessage);
-
     // Hide progress container and initial state
     elements.progressContainer.classList.add("hidden");
     elements.initialState.classList.add("hidden");
@@ -641,7 +609,6 @@ function setupProcessingListeners() {
     elements.submitBtn.disabled = false;
     elements.submitBtn.textContent = "Generate Metadata";
 
-    console.log("Error occurred, cleaning up listeners");
     // Clean up listeners after processing error
     cleanupListeners();
   });
@@ -649,19 +616,15 @@ function setupProcessingListeners() {
 
   // Helper function to clean up all listeners
   function cleanupListeners() {
-    console.log("Cleaning up all listeners");
     listenerCleanupFunctions.forEach((removeFunction) => {
       if (typeof removeFunction === "function") {
         removeFunction();
       }
     });
-    console.log("All listeners cleaned up");
   }
 
   // Also add a general app message listener
-  console.log("Setting up general message listener");
-  window.electronAPI.app.onMessage((message) => {
-    console.log("APP MESSAGE received:", message);
+  window.electronAPI.app.onMessage(() => {
     // You can display this message in a status area if needed
   });
 }
