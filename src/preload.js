@@ -70,6 +70,7 @@ const api = {
     onProgress: (callback) => listenToIPC("processing-progress", callback),
     onResults: (callback) => listenToIPC("processing-results", callback),
     onError: (callback) => listenToIPC("processing-error", callback),
+    onResultItem: (callback) => listenToIPC("processing-result-item", callback),
     saveMetadata: (data) => invokeIPC("save-metadata", data),
   },
 
@@ -92,6 +93,7 @@ const api = {
           "processing-start",
           "processing-progress",
           "processing-results",
+          "processing-result-item",
           "processing-error",
           "message",
         ].forEach((channel) => ipcRenderer.removeAllListeners(channel));

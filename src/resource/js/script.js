@@ -474,6 +474,15 @@ function setupProcessingListeners() {
     // Disable submit button
     elements.submitBtn.disabled = true;
     elements.submitBtn.textContent = "Processing...";
+
+    // Clear any previous modifications
+    modifiedMetadata.clear();
+
+    // Initialize results-related elements for real-time updates
+    elements.resultsSummary.classList.remove("hidden");
+    elements.totalCount.textContent = data.total;
+    elements.successCount.textContent = "0";
+    elements.failedCount.textContent = "0";
   });
   listenerCleanupFunctions.push(startRemover);
 
@@ -492,23 +501,39 @@ function setupProcessingListeners() {
   });
   listenerCleanupFunctions.push(progressRemover);
 
-  // Processing results
+  // Real-time result item updates
+  console.log("Setting up onResultItem listener");
+  const resultItemRemover = window.electronAPI.processing.onResultItem(
+    (result) => {
+      console.log("INDIVIDUAL RESULT received:", result);
+
+      // Add this individual result to the list
+      appendResultItem(result);
+
+      // Update success/failure counts
+      const successCount = parseInt(elements.successCount.textContent || "0");
+      const failedCount = parseInt(elements.failedCount.textContent || "0");
+
+      if (result.error) {
+        elements.failedCount.textContent = (failedCount + 1).toString();
+      } else {
+        elements.successCount.textContent = (successCount + 1).toString();
+      }
+    }
+  );
+  listenerCleanupFunctions.push(resultItemRemover);
+
+  // Processing results (final summary)
   console.log("Setting up onResults listener");
   const resultsRemover = window.electronAPI.processing.onResults((results) => {
-    console.log("RESULTS received:", results);
+    console.log("FINAL RESULTS received:", results);
 
     // Save output directory path
     outputDirectory = results.outputDirectory;
 
-    // Hide progress container, initial state, and show summary
+    // Hide progress container and show summary (summary is already visible from real-time updates)
     elements.progressContainer.classList.add("hidden");
     elements.initialState.classList.add("hidden");
-    elements.resultsSummary.classList.remove("hidden");
-
-    // Update summary counts
-    elements.totalCount.textContent = results.total;
-    elements.successCount.textContent = results.successful.length;
-    elements.failedCount.textContent = results.failed.length;
 
     // Update output directory and make it clickable if exists
     if (outputDirectory) {
@@ -538,9 +563,6 @@ function setupProcessingListeners() {
       elements.outputDir.classList.remove("clickable");
       elements.outputDir.title = "";
     }
-
-    // Display results list
-    displayResults(results.allResults);
 
     // Re-enable submit button
     elements.submitBtn.disabled = false;
@@ -637,154 +659,144 @@ function setupProcessingListeners() {
   });
 }
 
-// Display results in the results list
-function displayResults(results) {
-  if (!results || results.length === 0) {
-    elements.noResults.classList.remove("hidden");
-    return;
+// Helper function to append an individual result item to the results list
+function appendResultItem(result) {
+  if (!result) return;
+
+  // If this is the first result, make sure the no-results message is hidden
+  elements.noResults.classList.add("hidden");
+
+  const isError = !!result.error;
+  const resultItem = document.createElement("div");
+  resultItem.className = `result-item ${isError ? "error" : ""}`;
+
+  if (isError) {
+    // Error display
+    resultItem.innerHTML = `
+      <div class="result-item-header">
+        <span class="filename">${result.filename}</span>
+        <span class="status error">Failed</span>
+      </div>
+      <div class="result-message">
+        Error: ${result.error}
+      </div>
+    `;
+  } else {
+    // Use the original filename without any truncation
+    let displayName = result.filename;
+
+    // Success case with improved professional layout
+    resultItem.innerHTML = `
+      <div class="result-item-header">
+        <span class="filename" title="${result.filename}">${displayName}</span>
+        <span class="status">Success</span>
+      </div>
+      <div class="result-content">
+        <div class="result-image-row">
+          <div class="result-preview">
+            <img src="${result.outputPath || result.path}" alt="${
+      result.filename
+    }" class="preview-image">
+          </div>
+          <div class="metadata-title-container">
+            <div class="metadata-field">
+              <label>
+                <span class="label-text"><i class="fas fa-heading"></i> Title</span>
+                <span class="count-display">0 words | 0 chars</span>
+              </label>
+              <textarea class="metadata-title" data-filename="${
+                result.filename
+              }" data-field="title" data-original="${
+      result.metadata?.title || ""
+    }">${result.metadata?.title || ""}</textarea>
+            </div>
+          </div>
+        </div>
+        
+        <div class="metadata-field">
+          <label>
+            <span class="label-text"><i class="fas fa-align-left"></i> Description</span>
+            <span class="count-display">0 words | 0 chars</span>
+          </label>
+          <textarea class="metadata-description" data-filename="${
+            result.filename
+          }" data-field="description" data-original="${
+      result.metadata?.description || ""
+    }">${result.metadata?.description || ""}</textarea>
+        </div>
+        
+        <div class="metadata-field">
+          <label>
+            <span class="label-text"><i class="fas fa-tags"></i> Keywords</span>
+            <span class="count-display">0 keywords</span>
+          </label>
+          <textarea class="metadata-keywords" data-filename="${
+            result.filename
+          }" data-field="keywords" data-original="${
+      result.metadata?.keywords || ""
+    }">${result.metadata?.keywords || ""}</textarea>
+        </div>
+      </div>
+    `;
+
+    // Add event listeners for tracking changes to metadata fields
+    setTimeout(() => {
+      // Make sure textareas can be edited properly
+      const textareas = resultItem.querySelectorAll("textarea");
+      textareas.forEach((textarea) => {
+        // Store the file path for later saving
+        textarea.setAttribute(
+          "data-filepath",
+          result.outputPath || result.path
+        );
+
+        // Prevent default behavior that could interfere with editing
+        textarea.addEventListener("click", (e) => {
+          e.stopPropagation();
+        });
+
+        // Track changes and update the modified set
+        textarea.addEventListener("input", function () {
+          // Get the identifier for this field
+          const filename = this.getAttribute("data-filename");
+          const field = this.getAttribute("data-field");
+          const id = `${filename}:${field}`;
+          const original = this.getAttribute("data-original");
+
+          // Auto-resize textareas based on content
+          this.style.height = "auto";
+          this.style.height = this.scrollHeight + "px";
+
+          // Update word/char count
+          updateCountDisplay(this);
+
+          // Check if the content has changed from the original
+          if (this.value.trim() !== original?.trim()) {
+            modifiedMetadata.add(id);
+            textarea.classList.add("metadata-modified");
+          } else {
+            modifiedMetadata.delete(id);
+            textarea.classList.remove("metadata-modified");
+          }
+
+          // Update Save All button state
+          updateSaveAllButton();
+        });
+
+        // Initial sizing and count display
+        textarea.dispatchEvent(new Event("input"));
+      });
+    }, 0);
   }
 
-  elements.noResults.classList.add("hidden");
-  elements.resultsList.innerHTML = "";
+  elements.resultsList.appendChild(resultItem);
 
-  // Clear any previous modifications
-  modifiedMetadata.clear();
-
-  // Get the Save All button from the navbar and show it
+  // Show the Save All button once we have at least one result
   const saveAllBtn = document.getElementById("save-all-btn");
   if (saveAllBtn) {
     saveAllBtn.classList.remove("hidden");
-    saveAllBtn.disabled = true;
+    saveAllBtn.disabled = true; // Disabled until user makes changes
   }
-
-  results.forEach((result) => {
-    const isError = !!result.error;
-    const resultItem = document.createElement("div");
-    resultItem.className = `result-item ${isError ? "error" : ""}`;
-
-    if (isError) {
-      // Error display remains the same
-      resultItem.innerHTML = `
-        <div class="result-item-header">
-          <span class="filename">${result.filename}</span>
-          <span class="status error">Failed</span>
-        </div>
-        <div class="result-message">
-          Error: ${result.error}
-        </div>
-      `;
-    } else {
-      // Use the original filename without any truncation
-      let displayName = result.filename;
-
-      // Success case with improved professional layout
-      resultItem.innerHTML = `
-        <div class="result-item-header">
-          <span class="filename" title="${
-            result.filename
-          }">${displayName}</span>
-          <span class="status">Success</span>
-        </div>
-        <div class="result-content">
-          <div class="result-image-row">
-            <div class="result-preview">
-              <img src="${result.outputPath || result.path}" alt="${
-        result.filename
-      }" class="preview-image">
-            </div>
-            <div class="metadata-title-container">
-              <div class="metadata-field">
-                <label>
-                  <span class="label-text"><i class="fas fa-heading"></i> Title</span>
-                  <span class="count-display">0 words | 0 chars</span>
-                </label>
-                <textarea class="metadata-title" data-filename="${
-                  result.filename
-                }" data-field="title" data-original="${
-        result.metadata?.title || ""
-      }">${result.metadata?.title || ""}</textarea>
-              </div>
-            </div>
-          </div>
-          
-          <div class="metadata-field">
-            <label>
-              <span class="label-text"><i class="fas fa-align-left"></i> Description</span>
-              <span class="count-display">0 words | 0 chars</span>
-            </label>
-            <textarea class="metadata-description" data-filename="${
-              result.filename
-            }" data-field="description" data-original="${
-        result.metadata?.description || ""
-      }">${result.metadata?.description || ""}</textarea>
-          </div>
-          
-          <div class="metadata-field">
-            <label>
-              <span class="label-text"><i class="fas fa-tags"></i> Keywords</span>
-              <span class="count-display">0 keywords</span>
-            </label>
-            <textarea class="metadata-keywords" data-filename="${
-              result.filename
-            }" data-field="keywords" data-original="${
-        result.metadata?.keywords || ""
-      }">${result.metadata?.keywords || ""}</textarea>
-          </div>
-        </div>
-      `;
-
-      // Add event listeners for tracking changes to metadata fields
-      setTimeout(() => {
-        // Make sure textareas can be edited properly
-        const textareas = resultItem.querySelectorAll("textarea");
-        textareas.forEach((textarea) => {
-          // Store the file path for later saving
-          textarea.setAttribute(
-            "data-filepath",
-            result.outputPath || result.path
-          );
-
-          // Prevent default behavior that could interfere with editing
-          textarea.addEventListener("click", (e) => {
-            e.stopPropagation();
-          });
-
-          // Track changes and update the modified set
-          textarea.addEventListener("input", function () {
-            // Get the identifier for this field
-            const filename = this.getAttribute("data-filename");
-            const field = this.getAttribute("data-field");
-            const id = `${filename}:${field}`;
-            const original = this.getAttribute("data-original");
-
-            // Auto-resize textareas based on content
-            this.style.height = "auto";
-            this.style.height = this.scrollHeight + "px";
-
-            // Update word/char count
-            updateCountDisplay(this);
-
-            // Check if the content has changed from the original
-            if (this.value.trim() !== original?.trim()) {
-              modifiedMetadata.add(id);
-              textarea.classList.add("metadata-modified");
-            } else {
-              modifiedMetadata.delete(id);
-              textarea.classList.remove("metadata-modified");
-            }
-
-            // Update Save All button state
-            updateSaveAllButton();
-          });
-
-          // Initial sizing and count display
-          textarea.dispatchEvent(new Event("input"));
-        });
-      }, 0);
-    }
-
-    elements.resultsList.appendChild(resultItem);
-  });
 }
 
 // Function to update the Save All button state

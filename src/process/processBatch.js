@@ -358,14 +358,25 @@ async function processBatch(batch, options, apiKey) {
     uploadResults.forEach((result, index) => {
       if (result.status === "fulfilled") {
         results.push(result.value);
+
+        // Notify when an individual result is available
+        if (global.progressEvents?.onResultAvailable) {
+          global.progressEvents.onResultAvailable(result.value);
+        }
       } else {
-        results.push({
+        const failedResult = {
           filename:
             preparedImages[index].originalImage.originalname ||
             path.basename(preparedImages[index].originalImage.path),
           error: result.reason?.message || "Unknown error",
           status: "failed",
-        });
+        };
+        results.push(failedResult);
+
+        // Also notify for failed results
+        if (global.progressEvents?.onResultAvailable) {
+          global.progressEvents.onResultAvailable(failedResult);
+        }
       }
     });
 

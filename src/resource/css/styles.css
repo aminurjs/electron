@@ -883,13 +883,24 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .result-item {
-  background-color: var(--card-bg);
+  background-color: #333333;
   border-radius: 6px;
-  border: 1px solid var(--border-color);
-  margin-bottom: calc(var(--spacing-unit) * 1.5);
-  transition: box-shadow 0.2s;
+  margin-bottom: calc(var(--spacing-unit) * 2);
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .result-item:hover {

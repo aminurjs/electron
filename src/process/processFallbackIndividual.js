@@ -30,18 +30,33 @@ async function processFallbackIndividual(images, options, apiKey) {
       ];
 
       const batchResult = await processBatch(singleItemBatch, options, apiKey);
-      return batchResult[0]; // Return the first (and only) result
+      const result = batchResult[0]; // Return the first (and only) result
+
+      // Send real-time result if the onResultAvailable callback is provided
+      if (global.progressEvents?.onResultAvailable) {
+        global.progressEvents.onResultAvailable(result);
+      }
+
+      return result;
     } catch (error) {
       console.error(
         `Individual processing failed for ${
           image.filename || path.basename(image.path)
         }: ${error.message}`
       );
-      return {
+
+      const failedResult = {
         filename: image.filename || path.basename(image.path),
         error: error.message || "Unknown error during individual processing",
         status: "failed",
       };
+
+      // Also notify for failed results
+      if (global.progressEvents?.onResultAvailable) {
+        global.progressEvents.onResultAvailable(failedResult);
+      }
+
+      return failedResult;
     } finally {
       release();
     }
@@ -53,13 +68,20 @@ async function processFallbackIndividual(images, options, apiKey) {
     if (result.status === "fulfilled") {
       results.push(result.value);
     } else {
-      results.push({
+      const failedResult = {
         filename: "unknown",
         error:
           result.reason?.message ||
           "Unknown error during individual processing",
         status: "failed",
-      });
+      };
+
+      results.push(failedResult);
+
+      // Notify for errors in Promise handling
+      if (global.progressEvents?.onResultAvailable) {
+        global.progressEvents.onResultAvailable(failedResult);
+      }
     }
   });
 

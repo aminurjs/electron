@@ -88,9 +88,11 @@ async function validateApiKey(secretKey) {
 const progressTracker = {
   total: 0,
   processed: 0,
+  results: [], // Store results as they come in
   reset() {
     this.total = 0;
     this.processed = 0;
+    this.results = [];
   },
   setTotal(total) {
     this.total = total;
@@ -119,6 +121,21 @@ const progressTracker = {
       }
     } catch (err) {
       logError(`Error in increment: ${err.message}`);
+    }
+  },
+  addResult(result) {
+    this.results.push(result);
+    try {
+      if (global.mainWindow && !global.mainWindow.isDestroyed()) {
+        global.mainWindow.webContents.send("processing-result-item", result);
+        console.log("Sent real-time result update to renderer");
+      } else {
+        logError(
+          "Cannot send processing-result-item: mainWindow not available"
+        );
+      }
+    } catch (err) {
+      logError(`Error in addResult: ${err.message}`);
     }
   },
 };
@@ -157,7 +174,14 @@ function registerProcessingHandler() {
       const onBatchStart = (total) => progressTracker.setTotal(total);
       const onImageProcessed = () => progressTracker.increment();
 
-      global.progressEvents = { onBatchStart, onImageProcessed };
+      // Add a callback for individual results
+      const onResultAvailable = (result) => progressTracker.addResult(result);
+
+      global.progressEvents = {
+        onBatchStart,
+        onImageProcessed,
+        onResultAvailable,
+      };
 
       const results = await processImages(
         config.path,
@@ -182,17 +206,17 @@ function registerProcessingHandler() {
       }
 
       return { success: true, message: "Processing completed successfully" };
-    } catch (err) {
-      console.error("Processing error:", err);
-      logError(`Processing error: ${err.message}\n${err.stack}`);
+    } catch (error) {
+      console.error("Processing error:", error);
+      logError(`Processing error: ${error.message}\n${error.stack}`);
 
       if (global.mainWindow && !global.mainWindow.isDestroyed()) {
-        global.mainWindow.webContents.send("processing-error", err.message);
+        global.mainWindow.webContents.send("processing-error", error.message);
       } else {
         logError("Cannot send processing-error: mainWindow not available");
       }
 
-      return { success: false, message: err.message };
+      return { success: false, message: error.message };
     } finally {
       global.progressEvents = null;
     }
