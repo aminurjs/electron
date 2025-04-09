@@ -83,6 +83,9 @@ async function initApp() {
   console.log("Settings Secret Key Element:", elements.settingsSecretKey);
   console.log("Toggle Secret Key Button:", elements.toggleSecretKey);
 
+  // Get the save all button from the navbar
+  const navbarSaveAllBtn = document.getElementById("save-all-btn");
+
   // Set up event listeners
   setupEventListeners();
 
@@ -172,6 +175,11 @@ async function initApp() {
       }
     }
   });
+
+  // Add event listener to the Save All button in navbar
+  if (navbarSaveAllBtn) {
+    navbarSaveAllBtn.addEventListener("click", saveAllMetadata);
+  }
 }
 
 // Load settings from electron store
@@ -264,6 +272,53 @@ async function saveSettings() {
 
 // Set up all event listeners
 function setupEventListeners() {
+  // Get the submit button and wrap it in a form for submission handling
+  const submitBtn = document.getElementById("submit-btn");
+
+  // Create a config form handler
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault();
+
+    if (!selectedPath) {
+      alert("Please select a directory first");
+      return;
+    }
+
+    // Check if API key and secret key are set in settings
+    try {
+      const settings = await window.electronAPI.settings.load();
+      if (!settings || !settings.apiKey) {
+        alert("Please set your API key in settings first");
+        elements.settingsDialog.classList.add("active");
+        return;
+      }
+
+      if (!settings.secretKey) {
+        alert("Please set your secret key in settings first");
+        elements.settingsDialog.classList.add("active");
+        return;
+      }
+
+      // Set up event listeners for processing
+      setupProcessingListeners();
+
+      // Only need to pass the path now, settings are loaded from store
+      const config = {
+        path: selectedPath,
+      };
+
+      await window.electronAPI.processing.submit(config);
+    } catch (error) {
+      console.error("Error during processing setup:", error);
+      alert("An error occurred while setting up processing. Please try again.");
+    }
+  };
+
+  // Add click handler to submit button
+  if (submitBtn) {
+    submitBtn.addEventListener("click", handleSubmit);
+  }
+
   // Secret key toggle
   if (elements.toggleSecretKey) {
     elements.toggleSecretKey.addEventListener("click", () => {
@@ -320,10 +375,10 @@ function setupEventListeners() {
     elements.settingsDialog.classList.remove("active");
   });
 
-  // Close modal when clicking outside
-  elements.settingsDialog.addEventListener("click", (e) => {
-    if (e.target === elements.settingsDialog) {
-      elements.settingsDialog.classList.remove("active");
+  // Close help modal when clicking outside
+  elements.helpDialog.addEventListener("click", (e) => {
+    if (e.target === elements.helpDialog) {
+      elements.helpDialog.classList.remove("active");
     }
   });
 
@@ -354,45 +409,6 @@ function setupEventListeners() {
     } catch (error) {
       console.error("Error selecting path:", error);
       alert("Failed to select directory. Please try again.");
-    }
-  });
-
-  // Process images form
-  elements.configForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    if (!selectedPath) {
-      alert("Please select a directory first");
-      return;
-    }
-
-    // Check if API key and secret key are set in settings
-    try {
-      const settings = await window.electronAPI.settings.load();
-      if (!settings || !settings.apiKey) {
-        alert("Please set your API key in settings first");
-        elements.settingsDialog.classList.add("active");
-        return;
-      }
-
-      if (!settings.secretKey) {
-        alert("Please set your secret key in settings first");
-        elements.settingsDialog.classList.add("active");
-        return;
-      }
-
-      // Set up event listeners for processing
-      setupProcessingListeners();
-
-      // Only need to pass the path now, settings are loaded from store
-      const config = {
-        path: selectedPath,
-      };
-
-      await window.electronAPI.processing.submit(config);
-    } catch (error) {
-      console.error("Error during processing setup:", error);
-      alert("An error occurred while setting up processing. Please try again.");
     }
   });
 
@@ -427,6 +443,12 @@ function setupProcessingListeners() {
 
   // Store removal functions for later cleanup if needed
   const listenerCleanupFunctions = [];
+
+  // Get the Save All button and hide it during processing
+  const saveAllBtn = document.getElementById("save-all-btn");
+  if (saveAllBtn) {
+    saveAllBtn.classList.add("hidden");
+  }
 
   // Processing start event
   console.log("Setting up onStart listener");
@@ -490,9 +512,9 @@ function setupProcessingListeners() {
 
     // Update output directory and make it clickable if exists
     if (outputDirectory) {
-      elements.outputDir.innerHTML = `<i class="fas fa-folder-open"></i> ${outputDirectory}`;
+      elements.outputDir.innerHTML = `<i class="fas fa-folder-open"></i> Open Output Folder`;
       elements.outputDir.classList.add("clickable");
-      elements.outputDir.title = "Click to open folder";
+      elements.outputDir.title = "Click to open output folder";
 
       // Add click event to open the directory
       elements.outputDir.addEventListener("click", async () => {
@@ -628,20 +650,12 @@ function displayResults(results) {
   // Clear any previous modifications
   modifiedMetadata.clear();
 
-  // Add the results header with Save All button
-  const resultsHeader = document.createElement("div");
-  resultsHeader.className = "results-header";
-  resultsHeader.innerHTML = `
-    <div class="results-title">Processed Images (${results.length})</div>
-    <button id="save-all-btn" class="save-all-btn" disabled>
-      <i class="fas fa-save"></i> Save All Changes
-    </button>
-  `;
-  elements.resultsList.appendChild(resultsHeader);
-
-  // Add event listener to Save All button
+  // Get the Save All button from the navbar and show it
   const saveAllBtn = document.getElementById("save-all-btn");
-  saveAllBtn.addEventListener("click", saveAllMetadata);
+  if (saveAllBtn) {
+    saveAllBtn.classList.remove("hidden");
+    saveAllBtn.disabled = true;
+  }
 
   results.forEach((result) => {
     const isError = !!result.error;
@@ -660,10 +674,15 @@ function displayResults(results) {
         </div>
       `;
     } else {
+      // Use the original filename without any truncation
+      let displayName = result.filename;
+
       // Success case with improved professional layout
       resultItem.innerHTML = `
         <div class="result-item-header">
-          <span class="filename">${result.filename}</span>
+          <span class="filename" title="${
+            result.filename
+          }">${displayName}</span>
           <span class="status">Success</span>
         </div>
         <div class="result-content">
@@ -675,7 +694,10 @@ function displayResults(results) {
             </div>
             <div class="metadata-title-container">
               <div class="metadata-field">
-                <label><i class="fas fa-heading"></i> Title</label>
+                <label>
+                  <span class="label-text"><i class="fas fa-heading"></i> Title</span>
+                  <span class="count-display">0 words | 0 chars</span>
+                </label>
                 <textarea class="metadata-title" data-filename="${
                   result.filename
                 }" data-field="title" data-original="${
@@ -686,7 +708,10 @@ function displayResults(results) {
           </div>
           
           <div class="metadata-field">
-            <label><i class="fas fa-align-left"></i> Description</label>
+            <label>
+              <span class="label-text"><i class="fas fa-align-left"></i> Description</span>
+              <span class="count-display">0 words | 0 chars</span>
+            </label>
             <textarea class="metadata-description" data-filename="${
               result.filename
             }" data-field="description" data-original="${
@@ -695,7 +720,10 @@ function displayResults(results) {
           </div>
           
           <div class="metadata-field">
-            <label><i class="fas fa-tags"></i> Keywords</label>
+            <label>
+              <span class="label-text"><i class="fas fa-tags"></i> Keywords</span>
+              <span class="count-display">0 keywords</span>
+            </label>
             <textarea class="metadata-keywords" data-filename="${
               result.filename
             }" data-field="keywords" data-original="${
@@ -733,6 +761,9 @@ function displayResults(results) {
             this.style.height = "auto";
             this.style.height = this.scrollHeight + "px";
 
+            // Update word/char count
+            updateCountDisplay(this);
+
             // Check if the content has changed from the original
             if (this.value.trim() !== original?.trim()) {
               modifiedMetadata.add(id);
@@ -746,7 +777,7 @@ function displayResults(results) {
             updateSaveAllButton();
           });
 
-          // Initial sizing
+          // Initial sizing and count display
           textarea.dispatchEvent(new Event("input"));
         });
       }, 0);
@@ -761,6 +792,16 @@ function updateSaveAllButton() {
   const saveAllBtn = document.getElementById("save-all-btn");
   if (saveAllBtn) {
     saveAllBtn.disabled = modifiedMetadata.size === 0;
+
+    // If there are no modifications, we could optionally hide the button
+    if (modifiedMetadata.size === 0) {
+      // Don't hide the button if it was just saved (it will show success message)
+      if (!saveAllBtn.classList.contains("success")) {
+        // saveAllBtn.classList.add("hidden");
+      }
+    } else {
+      saveAllBtn.classList.remove("hidden");
+    }
   }
 }
 
@@ -775,16 +816,20 @@ async function saveAllMetadata() {
     saveAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
     saveAllBtn.disabled = true;
 
+    // Remove any previous state classes
+    saveAllBtn.classList.remove("error", "warning", "success");
+
     // Get all the modified fields
     const textareas = document.querySelectorAll("textarea.metadata-modified");
 
     // Group by filepath for efficient saving
     const filePathMap = new Map();
 
-    textareas.forEach((textarea) => {
-      const filename = textarea.getAttribute("data-filename");
-      const field = textarea.getAttribute("data-field");
-      const filePath = textarea.getAttribute("data-filepath");
+    // First, collect all the fields for each file, including unmodified ones
+    document.querySelectorAll("textarea[data-filepath]").forEach((element) => {
+      const filename = element.getAttribute("data-filename");
+      const field = element.getAttribute("data-field");
+      const filePath = element.getAttribute("data-filepath");
 
       if (!filePathMap.has(filePath)) {
         filePathMap.set(filePath, {
@@ -795,16 +840,27 @@ async function saveAllMetadata() {
             description: "",
             keywords: "",
           },
+          modified: false,
         });
       }
 
-      // Update the specific field
+      // Store the current value for each field
       const fileData = filePathMap.get(filePath);
-      fileData.metadata[field] = textarea.value.trim();
+      fileData.metadata[field] = element.value.trim();
     });
 
-    // Convert map to array
-    const saveRequests = Array.from(filePathMap.values());
+    // Now mark which files have modified fields
+    textareas.forEach((textarea) => {
+      const filePath = textarea.getAttribute("data-filepath");
+      if (filePathMap.has(filePath)) {
+        filePathMap.get(filePath).modified = true;
+      }
+    });
+
+    // Filter to only include files with modifications
+    const saveRequests = Array.from(filePathMap.values()).filter(
+      (file) => file.modified
+    );
 
     // Process each file save request
     let successCount = 0;
@@ -848,9 +904,13 @@ async function saveAllMetadata() {
     // Show result based on success/error count
     if (errorCount === 0) {
       saveAllBtn.innerHTML = '<i class="fas fa-check"></i> All Changes Saved!';
+      saveAllBtn.classList.add("success");
       setTimeout(() => {
         saveAllBtn.innerHTML = originalText;
         saveAllBtn.disabled = true; // All changes saved
+        saveAllBtn.classList.remove("success");
+        // Hide button if there are no more changes
+        updateSaveAllButton();
       }, 2000);
     } else if (successCount > 0) {
       saveAllBtn.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Saved ${successCount}, Failed ${errorCount}`;
@@ -859,6 +919,8 @@ async function saveAllMetadata() {
         saveAllBtn.innerHTML = originalText;
         saveAllBtn.disabled = modifiedMetadata.size === 0;
         saveAllBtn.classList.remove("warning");
+        // Update button visibility
+        updateSaveAllButton();
       }, 3000);
     } else {
       saveAllBtn.innerHTML = '<i class="fas fa-times"></i> Save Failed';
@@ -867,6 +929,8 @@ async function saveAllMetadata() {
         saveAllBtn.innerHTML = originalText;
         saveAllBtn.disabled = modifiedMetadata.size === 0;
         saveAllBtn.classList.remove("error");
+        // Update button visibility
+        updateSaveAllButton();
       }, 3000);
     }
   } catch (error) {
@@ -877,7 +941,30 @@ async function saveAllMetadata() {
       saveAllBtn.innerHTML = '<i class="fas fa-save"></i> Save All Changes';
       saveAllBtn.disabled = modifiedMetadata.size === 0;
       saveAllBtn.classList.remove("error");
+      // Update button visibility
+      updateSaveAllButton();
     }, 3000);
+  }
+}
+
+// Function to update character and word count display
+function updateCountDisplay(textarea) {
+  const countDisplay = textarea
+    .closest(".metadata-field")
+    .querySelector(".count-display");
+
+  const field = textarea.getAttribute("data-field");
+  const text = textarea.value.trim();
+
+  if (field === "keywords") {
+    const keywordCount = text
+      ? text.split(",").filter((k) => k.trim()).length
+      : 0;
+    countDisplay.textContent = `${keywordCount} keywords`;
+  } else {
+    const charCount = text.length;
+    const wordCount = text === "" ? 0 : text.split(/\s+/).length;
+    countDisplay.textContent = `${wordCount} words | ${charCount} chars`;
   }
 }
 
