@@ -7,9 +7,9 @@
     "start": "electron .",
     "dev": "nodemon --exec electron .",
     "icon": "node convert-icon.js",
-    "clean": "rimraf dist && rimraf node_modules/.cache",
+    "clean": "rimraf dist",
     "build": "npm run clean && electron-builder --config electron-builder.json",
-    "build:win": "npm run icon && electron-builder --win --x64 --config electron-builder.json"
+    "build:win": "npm run clean && electron-builder --win --x64 --config electron-builder.json"
   },
   "repository": "https://github.com/aminurjs/genmeta-app",
   "publish": {
