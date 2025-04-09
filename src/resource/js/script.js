@@ -685,6 +685,17 @@ function appendResultItem(result) {
     // Use the original filename without any truncation
     let displayName = result.filename;
 
+    // Format keywords with proper spacing between commas
+    let formattedKeywords = "";
+    if (result.metadata?.keywords) {
+      if (Array.isArray(result.metadata.keywords)) {
+        formattedKeywords = result.metadata.keywords.join(", ");
+      } else if (typeof result.metadata.keywords === "string") {
+        // Replace any commas without spaces after them with comma+space
+        formattedKeywords = result.metadata.keywords.replace(/,\s*/g, ", ");
+      }
+    }
+
     // Success case with improved professional layout
     resultItem.innerHTML = `
       <div class="result-item-header">
@@ -734,7 +745,7 @@ function appendResultItem(result) {
             result.filename
           }" data-field="keywords" data-original="${
       result.metadata?.keywords || ""
-    }">${result.metadata?.keywords || ""}</textarea>
+    }">${formattedKeywords}</textarea>
         </div>
       </div>
     `;
@@ -753,6 +764,14 @@ function appendResultItem(result) {
         // Prevent default behavior that could interfere with editing
         textarea.addEventListener("click", (e) => {
           e.stopPropagation();
+        });
+
+        // Track keydown events to detect Backspace
+        textarea.addEventListener("keydown", function (e) {
+          if (e.key === "Backspace") {
+            // Mark this textarea as having a backspace event in progress
+            this.dataset.lastKey = "Backspace";
+          }
         });
 
         // Track changes and update the modified set
@@ -966,9 +985,42 @@ function updateCountDisplay(textarea) {
     .querySelector(".count-display");
 
   const field = textarea.getAttribute("data-field");
-  const text = textarea.value.trim();
+  let text = textarea.value.trim();
 
   if (field === "keywords") {
+    // Format keywords with spaces between commas, but don't interfere with Backspace
+    if (text) {
+      // Only format if we're not in the middle of deleting text
+      const isBackspaceEvent = textarea.dataset.lastKey === "Backspace";
+
+      if (!isBackspaceEvent) {
+        // Replace any commas without spaces after them with comma+space
+        const formattedText = text.replace(/,\s*/g, ", ");
+
+        // Only update the textarea if the formatting actually changed something
+        if (formattedText !== text) {
+          // Get cursor position
+          const cursorPos = textarea.selectionStart;
+          const addedSpaces = formattedText.length - text.length;
+
+          // Update text
+          textarea.value = formattedText;
+
+          // Restore cursor position, adjusted for any added spaces
+          textarea.setSelectionRange(
+            cursorPos + addedSpaces,
+            cursorPos + addedSpaces
+          );
+
+          // Update text for count calculation
+          text = formattedText;
+        }
+      }
+
+      // Clear the backspace flag
+      delete textarea.dataset.lastKey;
+    }
+
     const keywordCount = text
       ? text.split(",").filter((k) => k.trim()).length
       : 0;
