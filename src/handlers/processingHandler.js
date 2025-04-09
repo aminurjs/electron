@@ -197,6 +197,58 @@ function registerProcessingHandler() {
       global.progressEvents = null;
     }
   });
+
+  // Handler for saving metadata updates
+  ipcMain.handle("save-metadata", async (event, { filePath, metadata }) => {
+    try {
+      console.log(`Saving metadata for ${filePath}:`, metadata);
+
+      if (!filePath || !fs.existsSync(filePath)) {
+        return { success: false, message: "File not found" };
+      }
+
+      // Import the addMetadataDirectly function
+      const { addMetadataDirectly } = require("../process/addMetadataToImage");
+
+      // Format the metadata object as needed
+      const formattedMetadata = {
+        title: (metadata.title || "").toString().trim(),
+        description: (metadata.description || "").toString().trim(),
+        keywords: Array.isArray(metadata.keywords)
+          ? metadata.keywords.map((k) => k.trim()).filter((k) => k)
+          : typeof metadata.keywords === "string"
+          ? metadata.keywords
+              .split(",")
+              .map((k) => k.trim())
+              .filter((k) => k)
+          : [],
+      };
+
+      // Call the new function
+      const result = await addMetadataDirectly(filePath, formattedMetadata);
+
+      if (result.status) {
+        console.log(`Metadata successfully updated for ${filePath}`);
+        return {
+          success: true,
+          message: "Metadata updated successfully",
+        };
+      } else {
+        console.error(`Error in metadata update: ${result.message}`);
+        return {
+          success: false,
+          message: result.message,
+        };
+      }
+    } catch (error) {
+      console.error(`Error saving metadata for ${filePath}:`, error);
+      logError(`Metadata update error: ${error.message}\n${error.stack}`);
+      return {
+        success: false,
+        message: `Failed to update metadata: ${error.message}`,
+      };
+    }
+  });
 }
 
 module.exports = { registerProcessingHandler, validateApiKey };

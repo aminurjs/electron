@@ -86,4 +86,64 @@ async function addMetadataToImage(
   }
 }
 
-module.exports = { addMetadataToImage };
+/**
+ * Adds metadata directly to a file without creating copies
+ * @param {string} filePath - Path to the file to modify
+ * @param {object} metadata - Metadata to add
+ * @returns {Promise<object>} - Operation result
+ */
+async function addMetadataDirectly(filePath, metadata) {
+  try {
+    const ext = path.extname(filePath).toLowerCase();
+
+    // Check if the file exists
+    if (!fs.existsSync(filePath)) {
+      return {
+        status: false,
+        message: `File not found: ${filePath}`,
+      };
+    }
+
+    // Prepare metadata based on file type
+    let metadataToWrite = prepareMetadata(metadata, ext);
+
+    // For PNG files, include keywords directly in the main metadata object
+    // instead of writing them separately
+    if (ext === ".png" && metadata.keywords?.length) {
+      metadataToWrite = {
+        ...metadataToWrite,
+        Keywords: metadata.keywords,
+        "XMP:Subject": metadata.keywords,
+        "XMP-dc:Subject": metadata.keywords,
+      };
+    }
+
+    // Write metadata with -overwrite_original flag to prevent backup files
+    await exiftool.write(filePath, metadataToWrite, ["-overwrite_original"]);
+
+    // Clean up any potential _original files that might have been created
+    const originalFilePath = `${filePath}_original`;
+    if (fs.existsSync(originalFilePath)) {
+      await fs.promises.unlink(originalFilePath);
+    }
+
+    return {
+      status: true,
+      message: "Metadata added successfully",
+      filePath,
+      mimeType: getMimeType(filePath),
+    };
+  } catch (error) {
+    console.error(
+      `Error adding metadata to ${path.basename(filePath)}:`,
+      error
+    );
+    return {
+      status: false,
+      message: `Failed to add metadata: ${error.message}`,
+      filePath,
+    };
+  }
+}
+
+module.exports = { addMetadataToImage, addMetadataDirectly };

@@ -70,6 +70,7 @@ const api = {
     onProgress: (callback) => listenToIPC("processing-progress", callback),
     onResults: (callback) => listenToIPC("processing-results", callback),
     onError: (callback) => listenToIPC("processing-error", callback),
+    saveMetadata: (data) => invokeIPC("save-metadata", data),
   },
 
   // Application module

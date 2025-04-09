@@ -45,13 +45,9 @@
         <div class="content-area">
           <!-- Configuration Panel -->
           <div class="panel">
-            <div class="panel-header">
-              <div class="panel-title">Configuration</div>
-            </div>
-
             <form id="config-form">
               <div class="form-group">
-                <label>Select Images Directory</label>
+                <label class="panel-title">Select Images Directory</label>
                 <div class="path-selection">
                   <div id="selected-path" class="path-display">
                     No directory selected
@@ -142,11 +138,11 @@
             <i class="fas fa-circle-info"></i>
             Status: <span id="api-status">checking...</span>
           </div>
-          <div class="status-item">
+          <div class="status-item" style="flex: 1">
             <i class="fas fa-calendar-alt"></i>
             Expires: <span id="api-expires">checking...</span>
           </div>
-          <div class="status-item" style="flex: 1">
+          <div class="status-item">
             <i class="fas fa-code-branch"></i>
             Version: <span id="app-version">loading...</span>
           </div>

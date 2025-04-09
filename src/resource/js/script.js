@@ -1,6 +1,9 @@
 let selectedPath = null;
 let outputDirectory = null;
 
+// Global variable to track modified metadata
+let modifiedMetadata = new Set();
+
 const elements = {
   selectPathBtn: document.getElementById("select-path-btn"),
   selectedPath: document.getElementById("selected-path"),
@@ -622,31 +625,260 @@ function displayResults(results) {
   elements.noResults.classList.add("hidden");
   elements.resultsList.innerHTML = "";
 
+  // Clear any previous modifications
+  modifiedMetadata.clear();
+
+  // Add the results header with Save All button
+  const resultsHeader = document.createElement("div");
+  resultsHeader.className = "results-header";
+  resultsHeader.innerHTML = `
+    <div class="results-title">Processed Images (${results.length})</div>
+    <button id="save-all-btn" class="save-all-btn" disabled>
+      <i class="fas fa-save"></i> Save All Changes
+    </button>
+  `;
+  elements.resultsList.appendChild(resultsHeader);
+
+  // Add event listener to Save All button
+  const saveAllBtn = document.getElementById("save-all-btn");
+  saveAllBtn.addEventListener("click", saveAllMetadata);
+
   results.forEach((result) => {
     const isError = !!result.error;
     const resultItem = document.createElement("div");
     resultItem.className = `result-item ${isError ? "error" : ""}`;
 
-    resultItem.innerHTML = `
-      <div class="result-item-header">
-        <span class="filename">${result.filename}</span>
-        <span class="status ${isError ? "error" : ""}">${
-      isError ? "Failed" : "Success"
-    }</span>
-      </div>
-      <div class="result-message">
-        ${
-          isError
-            ? `Error: ${result.error}`
-            : `Metadata added successfully${
-                result.outputPath ? ` to ${result.outputPath}` : ""
-              }`
-        }
-      </div>
-    `;
+    if (isError) {
+      // Error display remains the same
+      resultItem.innerHTML = `
+        <div class="result-item-header">
+          <span class="filename">${result.filename}</span>
+          <span class="status error">Failed</span>
+        </div>
+        <div class="result-message">
+          Error: ${result.error}
+        </div>
+      `;
+    } else {
+      // Success case with improved professional layout
+      resultItem.innerHTML = `
+        <div class="result-item-header">
+          <span class="filename">${result.filename}</span>
+          <span class="status">Success</span>
+        </div>
+        <div class="result-content">
+          <div class="result-image-row">
+            <div class="result-preview">
+              <img src="${result.outputPath || result.path}" alt="${
+        result.filename
+      }" class="preview-image">
+            </div>
+            <div class="metadata-title-container">
+              <div class="metadata-field">
+                <label><i class="fas fa-heading"></i> Title</label>
+                <textarea class="metadata-title" data-filename="${
+                  result.filename
+                }" data-field="title" data-original="${
+        result.metadata?.title || ""
+      }">${result.metadata?.title || ""}</textarea>
+              </div>
+            </div>
+          </div>
+          
+          <div class="metadata-field">
+            <label><i class="fas fa-align-left"></i> Description</label>
+            <textarea class="metadata-description" data-filename="${
+              result.filename
+            }" data-field="description" data-original="${
+        result.metadata?.description || ""
+      }">${result.metadata?.description || ""}</textarea>
+          </div>
+          
+          <div class="metadata-field">
+            <label><i class="fas fa-tags"></i> Keywords</label>
+            <textarea class="metadata-keywords" data-filename="${
+              result.filename
+            }" data-field="keywords" data-original="${
+        result.metadata?.keywords || ""
+      }">${result.metadata?.keywords || ""}</textarea>
+          </div>
+        </div>
+      `;
+
+      // Add event listeners for tracking changes to metadata fields
+      setTimeout(() => {
+        // Make sure textareas can be edited properly
+        const textareas = resultItem.querySelectorAll("textarea");
+        textareas.forEach((textarea) => {
+          // Store the file path for later saving
+          textarea.setAttribute(
+            "data-filepath",
+            result.outputPath || result.path
+          );
+
+          // Prevent default behavior that could interfere with editing
+          textarea.addEventListener("click", (e) => {
+            e.stopPropagation();
+          });
+
+          // Track changes and update the modified set
+          textarea.addEventListener("input", function () {
+            // Get the identifier for this field
+            const filename = this.getAttribute("data-filename");
+            const field = this.getAttribute("data-field");
+            const id = `${filename}:${field}`;
+            const original = this.getAttribute("data-original");
+
+            // Auto-resize textareas based on content
+            this.style.height = "auto";
+            this.style.height = this.scrollHeight + "px";
+
+            // Check if the content has changed from the original
+            if (this.value.trim() !== original?.trim()) {
+              modifiedMetadata.add(id);
+              textarea.classList.add("metadata-modified");
+            } else {
+              modifiedMetadata.delete(id);
+              textarea.classList.remove("metadata-modified");
+            }
+
+            // Update Save All button state
+            updateSaveAllButton();
+          });
+
+          // Initial sizing
+          textarea.dispatchEvent(new Event("input"));
+        });
+      }, 0);
+    }
 
     elements.resultsList.appendChild(resultItem);
   });
+}
+
+// Function to update the Save All button state
+function updateSaveAllButton() {
+  const saveAllBtn = document.getElementById("save-all-btn");
+  if (saveAllBtn) {
+    saveAllBtn.disabled = modifiedMetadata.size === 0;
+  }
+}
+
+// Function to save all modified metadata
+async function saveAllMetadata() {
+  const saveAllBtn = document.getElementById("save-all-btn");
+  if (!saveAllBtn || modifiedMetadata.size === 0) return;
+
+  try {
+    // Update button to show saving state
+    const originalText = saveAllBtn.innerHTML;
+    saveAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    saveAllBtn.disabled = true;
+
+    // Get all the modified fields
+    const textareas = document.querySelectorAll("textarea.metadata-modified");
+
+    // Group by filepath for efficient saving
+    const filePathMap = new Map();
+
+    textareas.forEach((textarea) => {
+      const filename = textarea.getAttribute("data-filename");
+      const field = textarea.getAttribute("data-field");
+      const filePath = textarea.getAttribute("data-filepath");
+
+      if (!filePathMap.has(filePath)) {
+        filePathMap.set(filePath, {
+          filename,
+          filePath,
+          metadata: {
+            title: "",
+            description: "",
+            keywords: "",
+          },
+        });
+      }
+
+      // Update the specific field
+      const fileData = filePathMap.get(filePath);
+      fileData.metadata[field] = textarea.value.trim();
+    });
+
+    // Convert map to array
+    const saveRequests = Array.from(filePathMap.values());
+
+    // Process each file save request
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const request of saveRequests) {
+      try {
+        // Call backend to save the metadata
+        const result = await window.electronAPI.processing.saveMetadata({
+          filePath: request.filePath,
+          metadata: request.metadata,
+        });
+
+        if (result.success) {
+          successCount++;
+
+          // Update data-original attributes for successful saves
+          document
+            .querySelectorAll(`textarea[data-filename="${request.filename}"]`)
+            .forEach((field) => {
+              const fieldName = field.getAttribute("data-field");
+              field.setAttribute("data-original", request.metadata[fieldName]);
+              field.classList.remove("metadata-modified");
+
+              // Remove from modified set
+              const id = `${request.filename}:${fieldName}`;
+              modifiedMetadata.delete(id);
+            });
+        } else {
+          errorCount++;
+          console.error(
+            `Failed to save metadata for ${request.filename}: ${result.message}`
+          );
+        }
+      } catch (err) {
+        errorCount++;
+        console.error(`Error saving metadata for ${request.filename}:`, err);
+      }
+    }
+
+    // Show result based on success/error count
+    if (errorCount === 0) {
+      saveAllBtn.innerHTML = '<i class="fas fa-check"></i> All Changes Saved!';
+      setTimeout(() => {
+        saveAllBtn.innerHTML = originalText;
+        saveAllBtn.disabled = true; // All changes saved
+      }, 2000);
+    } else if (successCount > 0) {
+      saveAllBtn.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Saved ${successCount}, Failed ${errorCount}`;
+      saveAllBtn.classList.add("warning");
+      setTimeout(() => {
+        saveAllBtn.innerHTML = originalText;
+        saveAllBtn.disabled = modifiedMetadata.size === 0;
+        saveAllBtn.classList.remove("warning");
+      }, 3000);
+    } else {
+      saveAllBtn.innerHTML = '<i class="fas fa-times"></i> Save Failed';
+      saveAllBtn.classList.add("error");
+      setTimeout(() => {
+        saveAllBtn.innerHTML = originalText;
+        saveAllBtn.disabled = modifiedMetadata.size === 0;
+        saveAllBtn.classList.remove("error");
+      }, 3000);
+    }
+  } catch (error) {
+    console.error("Error in saveAllMetadata:", error);
+    saveAllBtn.innerHTML = '<i class="fas fa-times"></i> Save Failed';
+    saveAllBtn.classList.add("error");
+    setTimeout(() => {
+      saveAllBtn.innerHTML = '<i class="fas fa-save"></i> Save All Changes';
+      saveAllBtn.disabled = modifiedMetadata.size === 0;
+      saveAllBtn.classList.remove("error");
+    }, 3000);
+  }
 }
 
 // Initialize the app on load
