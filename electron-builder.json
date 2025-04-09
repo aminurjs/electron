@@ -1,0 +1,34 @@
+{
+  "appId": "com.genmeta.app",
+  "productName": "GenMeta",
+  "directories": {
+    "output": "dist"
+  },
+  "files": ["src/**/*", "package.json", "LICENSE"],
+  "win": {
+    "target": "nsis",
+    "icon": "src/assets/icon.ico",
+    "artifactName": "${productName}-Setup-${version}.${ext}",
+    "signAndEditExecutable": false
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "installerIcon": "src/assets/icon.ico",
+    "uninstallerIcon": "src/assets/icon.ico",
+    "installerHeaderIcon": "src/assets/icon.ico",
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
+  },
+  "mac": {
+    "target": "dmg",
+    "identity": null
+  },
+  "npmRebuild": false,
+  "publish": {
+    "provider": "github",
+    "releaseType": "release",
+    "owner": "AminurRahman"
+  },
+  "afterPack": "./after-pack.js"
+}

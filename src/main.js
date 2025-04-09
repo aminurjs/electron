@@ -4,7 +4,6 @@ const { autoUpdater } = require("electron-updater");
 const { createMainWindow } = require("./createMainWindow");
 const fs = require("fs");
 const { net } = require("electron");
-const { API_CONFIG } = require("./config/env");
 
 // Create the utils directory if it doesn't exist
 const utilsDir = path.join(__dirname, "utils");
@@ -469,13 +468,15 @@ async function getStatus(secretKey) {
       return;
     }
 
+    // Correctly setting the request options
     const request = net.request({
       method: "GET",
-      protocol: API_CONFIG.VALIDATION_PROTOCOL,
-      hostname: API_CONFIG.VALIDATION_HOST,
+      protocol: "https:",
+      hostname: "genmeta-apikey-manager.vercel.app",
       path: "/api/keys/stats",
     });
 
+    // Set headers
     request.setHeader("x-api-key", secretKey);
     request.setHeader("Content-Type", "application/json");
 
@@ -505,7 +506,7 @@ async function getStatus(secretKey) {
       reject(new Error(`API status request failed: ${error.message}`));
     });
 
-    request.end(); // GET request with headers only
+    request.end(); // Sending the request
   });
 }
 

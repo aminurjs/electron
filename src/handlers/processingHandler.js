@@ -3,7 +3,6 @@ const { processImages } = require("../process/processImages");
 const { loadSettings } = require("./settingsHandler");
 const fs = require("fs");
 const path = require("path");
-const { API_CONFIG } = require("../config/env");
 
 // Get the app data path for logging
 const logPath = path.join(app.getPath("userData"), "processing-log.txt");
@@ -45,8 +44,8 @@ async function validateApiKey(secretKey) {
 
     const request = net.request({
       method: "POST",
-      protocol: API_CONFIG.VALIDATION_PROTOCOL,
-      hostname: API_CONFIG.VALIDATION_HOST,
+      protocol: "https:",
+      hostname: "genmeta-apikey-manager.vercel.app",
       path: "/api/keys/validate",
     });
 

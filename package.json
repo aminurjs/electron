@@ -1,46 +1,15 @@
 {
   "name": "genmeta-app",
-  "version": "2.1.2",
+  "version": "3.0.1",
   "description": "Metadata generator",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "nodemon --exec electron .",
-    "clean": "rimraf dist",
-    "build": "npm run clean && electron-builder",
-    "build:win": "electron-builder --win --x64"
-  },
-  "build": {
-    "appId": "com.genmeta.app",
-    "productName": "GenMeta",
-    "files": [
-      "src/**/*",
-      "package.json",
-      "LICENSE"
-    ],
-    "win": {
-      "target": "nsis",
-      "icon": "src/assets/icon.ico",
-      "artifactName": "${productName}-Setup-${version}.${ext}",
-      "signAndEditExecutable": false
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "installerIcon": "src/assets/icon.ico",
-      "uninstallerIcon": "src/assets/icon.ico",
-      "installerHeaderIcon": "src/assets/icon.ico",
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
-    },
-    "mac": {
-      "target": "dmg",
-      "identity": null
-    },
-    "directories": {
-      "output": "dist"
-    },
-    "npmRebuild": false
+    "icon": "node convert-icon.js",
+    "clean": "rimraf dist && rimraf node_modules/.cache",
+    "build": "npm run clean && electron-builder --config electron-builder.json",
+    "build:win": "npm run icon && electron-builder --win --x64 --config electron-builder.json"
   },
   "repository": "https://github.com/aminurjs/genmeta-app",
   "publish": {
@@ -61,7 +30,6 @@
   "homepage": "https://github.com/aminurjs/genmeta-app#readme",
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
-    "dotenv": "^16.4.7",
     "electron-updater": "^6.6.2",
     "exiftool-vendored": "^22.2.3",
     "sharp": "^0.34.0"
@@ -69,11 +37,12 @@
   "devDependencies": {
     "@eslint/js": "^9.23.0",
     "electron": "^35.1.4",
-    "electron-builder": "^24.13.3",
+    "electron-builder": "^26.0.12",
     "eslint": "^9.23.0",
     "globals": "^16.0.0",
     "nodemon": "^3.1.9",
     "png-to-ico": "^2.1.8",
+    "rcedit": "^3.1.0",
     "rimraf": "^6.0.1"
   }
 }
