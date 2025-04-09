@@ -142,7 +142,14 @@ function createMainWindow() {
   // Set up event listeners with debounced save
   win.on("resize", debouncedSave);
   win.on("move", debouncedSave);
-  win.on("close", () => saveWindowState(win));
+  win.on("close", () => {
+    saveWindowState(win);
+
+    // If this is the last window, make sure we quit the app
+    if (BrowserWindow.getAllWindows().length <= 1) {
+      app.quit();
+    }
+  });
 
   // Extend window with message method for IPC communication
   win.showMessage = (message) => {

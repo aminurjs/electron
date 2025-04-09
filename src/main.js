@@ -1,8 +1,10 @@
-const { app, Menu } = require("electron");
+const { app, Menu, BrowserWindow } = require("electron");
 const path = require("path");
 const { autoUpdater } = require("electron-updater");
 const { createMainWindow } = require("./createMainWindow");
 const fs = require("fs");
+const { net } = require("electron");
+const { API_CONFIG } = require("./config/env");
 
 // Create the utils directory if it doesn't exist
 const utilsDir = path.join(__dirname, "utils");
@@ -239,9 +241,32 @@ process.on("uncaughtException", (err) => {
 
 // Add version IPC handler
 const { ipcMain } = require("electron");
+const { loadSettings } = require("./handlers/settingsHandler");
 ipcMain.handle("get-app-version", () => {
   return app.getVersion();
 });
+
+// Add a flag to track if we're in the background
+let isAppInBackground = false;
+
+// Listen for app activation and suspension
+app.on("browser-window-blur", () => {
+  isAppInBackground = true;
+  logStartup("App moved to background");
+});
+
+app.on("browser-window-focus", () => {
+  isAppInBackground = false;
+  logStartup("App moved to foreground");
+});
+
+// Additional check for app with no visible windows
+setInterval(() => {
+  if (isAppInBackground && BrowserWindow.getAllWindows().length === 0) {
+    logStartup("App is in background with no windows, quitting...");
+    app.quit();
+  }
+}, 5000); // Check every 5 seconds
 
 app.whenReady().then(() => {
   // Set app icon explicitly
@@ -270,6 +295,18 @@ app.whenReady().then(() => {
     mainWindow = createMainWindow();
     global.mainWindow = mainWindow;
     logStartup("Main window created successfully");
+
+    // Check API status when app starts
+    checkApiStatus().then((status) => {
+      logStartup(
+        `Initial API status check completed: ${status?.status || "unknown"}`
+      );
+    });
+
+    // Set up periodic API status check (every hour)
+    setInterval(() => {
+      checkApiStatus();
+    }, 60 * 60 * 1000); // Every hour
 
     // Add event listener to track window destruction
     mainWindow.on("closed", () => {
@@ -413,15 +450,93 @@ app.on("before-quit", (event) => {
 
 app.on("window-all-closed", () => {
   logStartup("All windows closed");
-  if (process.platform !== "darwin") {
-    // If there's an update ready to install, wait for it
-    if (autoUpdater.isUpdaterActive()) {
-      logStartup("Waiting for update installation before quitting...");
-      setTimeout(() => {
-        app.quit();
-      }, 5000); // Give 5 seconds for the update to install
-    } else {
+  // If there's an update ready to install, wait for it
+  if (autoUpdater.isUpdaterActive()) {
+    logStartup("Waiting for update installation before quitting...");
+    setTimeout(() => {
       app.quit();
-    }
+    }, 5000); // Give 5 seconds for the update to install
+  } else {
+    app.quit();
   }
 });
+
+// Function to check API status
+async function getStatus(secretKey) {
+  return new Promise((resolve, reject) => {
+    if (!secretKey) {
+      reject(new Error("Secret key is not set"));
+      return;
+    }
+
+    const request = net.request({
+      method: "GET",
+      protocol: API_CONFIG.VALIDATION_PROTOCOL,
+      hostname: API_CONFIG.VALIDATION_HOST,
+      path: "/api/keys/stats",
+    });
+
+    request.setHeader("x-api-key", secretKey);
+    request.setHeader("Content-Type", "application/json");
+
+    let responseData = "";
+
+    request.on("response", (response) => {
+      response.on("data", (chunk) => {
+        responseData += chunk.toString();
+      });
+
+      response.on("end", () => {
+        try {
+          const parsed = JSON.parse(responseData);
+          if (parsed.success && parsed.data) {
+            console.log("API status retrieved");
+            resolve(parsed.data); // contains expiresIn, status
+          } else {
+            reject(new Error(parsed.message || "Failed to fetch API status"));
+          }
+        } catch (err) {
+          reject(new Error(`Failed to parse status response: ${err.message}`));
+        }
+      });
+    });
+
+    request.on("error", (error) => {
+      reject(new Error(`API status request failed: ${error.message}`));
+    });
+
+    request.end(); // GET request with headers only
+  });
+}
+
+// Function to check API status and update UI
+async function checkApiStatus() {
+  try {
+    const settings = loadSettings();
+
+    if (!settings.secretKey) {
+      logStartup("Secret key is not set");
+      return;
+    }
+
+    const status = await getStatus(settings.secretKey);
+    logStartup(
+      `API Status: ${status.status}, Expires in: ${status.expiresIn} days`
+    );
+
+    // Send status to renderer
+    if (global.mainWindow && !global.mainWindow.isDestroyed()) {
+      global.mainWindow.webContents.send("api-status-update", status);
+    }
+
+    return status;
+  } catch (error) {
+    logStartup(`Error checking API status: ${error.message}`);
+    if (global.mainWindow && !global.mainWindow.isDestroyed()) {
+      global.mainWindow.webContents.send("api-status-update", {
+        status: "error",
+        error: error.message,
+      });
+    }
+  }
+}

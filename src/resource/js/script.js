@@ -65,6 +65,10 @@ const elements = {
 
   // Status message display
   statusMessage: document.getElementById("status-message"),
+
+  // API status display
+  apiStatus: document.getElementById("api-status"),
+  apiExpires: document.getElementById("api-expires"),
 };
 
 // Initialize the app
@@ -102,6 +106,68 @@ async function initApp() {
       elements.statusMessage.textContent = message;
     }
     console.log("App message:", message);
+  });
+
+  // Listen for API status updates
+  window.electronAPI.app.onApiStatusUpdate((status) => {
+    console.log("API status update received:", status);
+
+    // Update status display
+    if (elements.apiStatus) {
+      if (status.status === "error") {
+        elements.apiStatus.textContent = "Error";
+        elements.apiStatus.className = "status-error";
+      } else {
+        let statusText = "";
+        let statusClass = "";
+
+        switch (status.status) {
+          case "active":
+            statusText = "Active";
+            statusClass = "status-active";
+            break;
+          case "suspended":
+            statusText = "Suspended";
+            statusClass = "status-warning";
+            break;
+          case "expired":
+            statusText = "Expired";
+            statusClass = "status-error";
+            break;
+          default:
+            statusText = status.status || "Unknown";
+            statusClass = "status-unknown";
+        }
+
+        elements.apiStatus.textContent = statusText;
+        elements.apiStatus.className = statusClass;
+      }
+    }
+
+    // Update expiration display
+    if (elements.apiExpires) {
+      if (status.status === "error") {
+        elements.apiExpires.textContent = "Unknown";
+        elements.apiExpires.className = "status-unknown";
+      } else if (status.status === "expired") {
+        elements.apiExpires.textContent = "Expired";
+        elements.apiExpires.className = "status-error";
+      } else {
+        const expiresText =
+          status.expiresIn > 0 ? `${status.expiresIn} days` : "Today";
+
+        elements.apiExpires.textContent = expiresText;
+
+        // Apply warning class if expiring soon (7 days or less)
+        if (status.expiresIn <= 7 && status.expiresIn > 0) {
+          elements.apiExpires.className = "status-warning";
+        } else if (status.expiresIn > 7) {
+          elements.apiExpires.className = "status-active";
+        } else {
+          elements.apiExpires.className = "status-error";
+        }
+      }
+    }
   });
 }
 

@@ -76,6 +76,7 @@ const api = {
   app: {
     onMessage: (callback) => listenToIPC("message", callback),
     getVersion: () => invokeIPC("get-app-version"),
+    onApiStatusUpdate: (callback) => listenToIPC("api-status-update", callback),
   },
 
   // Cleanup helper
