@@ -822,46 +822,44 @@ async function saveAllMetadata() {
     // Remove any previous state classes
     saveAllBtn.classList.remove("error", "warning", "success");
 
-    // Get all the modified fields
-    const textareas = document.querySelectorAll("textarea.metadata-modified");
-
     // Group by filepath for efficient saving
     const filePathMap = new Map();
 
-    // Only collect data for modified fields
-    textareas.forEach((element) => {
-      const filename = element.getAttribute("data-filename");
-      const field = element.getAttribute("data-field");
-      const filePath = element.getAttribute("data-filepath");
-
-      if (!filePathMap.has(filePath)) {
-        filePathMap.set(filePath, {
-          filename,
-          filePath,
-          metadata: {
-            title: "",
-            description: "",
-            keywords: "",
-          },
-          modified: true,
-        });
-      }
-
-      // Store the current value for the field
-      const fileData = filePathMap.get(filePath);
-      fileData.metadata[field] = element.value.trim();
+    // First, gather ALL values for all files that have at least one modified field
+    const modifiedFilenames = new Set();
+    modifiedMetadata.forEach((id) => {
+      const [filename] = id.split(":");
+      modifiedFilenames.add(filename);
     });
 
-    // For files with modifications, get the remaining unmodified field values
-    filePathMap.forEach((fileData, filePath) => {
-      document
-        .querySelectorAll(
-          `textarea[data-filepath="${filePath}"]:not(.metadata-modified)`
-        )
-        .forEach((element) => {
+    // For each file with modifications, collect ALL fields (modified and unmodified)
+    modifiedFilenames.forEach((filename) => {
+      const textareas = document.querySelectorAll(
+        `textarea[data-filename="${filename}"]`
+      );
+      if (textareas.length > 0) {
+        const filePath = textareas[0].getAttribute("data-filepath");
+
+        if (!filePathMap.has(filePath)) {
+          filePathMap.set(filePath, {
+            filename,
+            filePath,
+            metadata: {
+              title: "",
+              description: "",
+              keywords: "",
+            },
+            modified: true,
+          });
+        }
+
+        // Collect ALL field values for this file
+        textareas.forEach((element) => {
           const field = element.getAttribute("data-field");
+          const fileData = filePathMap.get(filePath);
           fileData.metadata[field] = element.value.trim();
         });
+      }
     });
 
     // Since we're only adding modified files to the map, we don't need additional filtering

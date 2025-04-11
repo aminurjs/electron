@@ -233,10 +233,14 @@ function registerProcessingHandler() {
       // Import the addMetadataDirectly function
       const { addMetadataDirectly } = require("../process/addMetadataToImage");
 
-      // Format the metadata object as needed
+      // Format the metadata object as needed, ensuring no field is empty unless intentional
       const formattedMetadata = {
-        title: (metadata.title || "").toString().trim(),
-        description: (metadata.description || "").toString().trim(),
+        title:
+          metadata.title !== undefined ? metadata.title.toString().trim() : "",
+        description:
+          metadata.description !== undefined
+            ? metadata.description.toString().trim()
+            : "",
         keywords: Array.isArray(metadata.keywords)
           ? metadata.keywords.map((k) => k.trim()).filter((k) => k)
           : typeof metadata.keywords === "string"
